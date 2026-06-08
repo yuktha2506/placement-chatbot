@@ -7,6 +7,7 @@ import {
   Check,
   Download,
   Edit3,
+  FileUp,
   LogOut,
   Menu,
   Moon,
@@ -33,6 +34,203 @@ function nowTime() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+const page = {
+  marginX: 14,
+  marginTop: 16,
+  marginBottom: 280,
+  width: 182
+};
+
+function cleanMarkdown(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)");
+}
+
+function safeFilename(name) {
+  return name.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_").slice(0, 80);
+}
+
+function inferPdfName(messages, fallbackTitle) {
+  const text = messages.map((message) => message.content).join("\n");
+  const name = text.match(/(?:Name|Candidate)\s*:\s*([A-Za-z][A-Za-z\s]{1,60})/i)?.[1]?.trim();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+
+  if (/ATS Score|Resume-Based Placement Analysis/i.test(text)) {
+    return safeFilename(`ATS_Analysis_${name || timestamp}.pdf`);
+  }
+
+  if (/ATS-Friendly Resume/i.test(text)) {
+    return safeFilename(`Resume_${name || timestamp}.pdf`);
+  }
+
+  if (/Skill Gap Analysis|Placement Readiness Score|Personalized Roadmap/i.test(text)) {
+    return safeFilename(`Placement_Report_${name || timestamp}.pdf`);
+  }
+
+  return safeFilename(`Chat_Export_${fallbackTitle || timestamp}.pdf`);
+}
+
+function ensureSpace(doc, y, needed = 8) {
+  if (y + needed <= page.marginBottom) return y;
+  doc.addPage();
+  return page.marginTop;
+}
+
+function writeWrapped(doc, text, x, y, width, options = {}) {
+  const lines = doc.splitTextToSize(cleanMarkdown(text), width);
+  const lineHeight = options.lineHeight || 5;
+  y = ensureSpace(doc, y, lines.length * lineHeight);
+  doc.text(lines, x, y);
+  return y + lines.length * lineHeight;
+}
+
+function writeTable(doc, lines, y) {
+  const rows = lines
+    .filter((line) => /^\|.*\|$/.test(line.trim()))
+    .filter((line) => !/^\|\s*-+/.test(line.replace(/\s/g, "")))
+    .map((line) => line.trim().slice(1, -1).split("|").map((cell) => cleanMarkdown(cell.trim())));
+
+  if (!rows.length) return y;
+
+  const columnCount = Math.max(...rows.map((row) => row.length));
+  const colWidth = page.width / columnCount;
+
+  rows.forEach((row, rowIndex) => {
+    const cellLines = row.map((cell) => doc.splitTextToSize(cell, colWidth - 4));
+    const rowHeight = Math.max(...cellLines.map((cell) => cell.length)) * 4.8 + 5;
+    y = ensureSpace(doc, y, rowHeight);
+
+    row.forEach((_, colIndex) => {
+      const x = page.marginX + colIndex * colWidth;
+      doc.setFillColor(rowIndex === 0 ? 238 : 255, rowIndex === 0 ? 242 : 255, rowIndex === 0 ? 245 : 255);
+      doc.rect(x, y - 4, colWidth, rowHeight, "FD");
+      doc.setFont("helvetica", rowIndex === 0 ? "bold" : "normal");
+      doc.text(cellLines[colIndex] || [""], x + 2, y + 1);
+    });
+
+    y += rowHeight;
+  });
+
+  doc.setFont("helvetica", "normal");
+  return y + 4;
+}
+
+function renderMarkdownToPdf(doc, markdown, y) {
+  const lines = markdown.split(/\r?\n/);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index];
+    const line = rawLine.trim();
+
+    if (!line) {
+      y += 3;
+      continue;
+    }
+
+    if (/^\|.*\|$/.test(line)) {
+      const tableLines = [];
+      while (index < lines.length && /^\|.*\|$/.test(lines[index].trim())) {
+        tableLines.push(lines[index]);
+        index += 1;
+      }
+      index -= 1;
+      y = writeTable(doc, tableLines, y);
+      continue;
+    }
+
+    if (/^#{1,3}\s+/.test(line)) {
+      const level = line.match(/^#+/)[0].length;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(level === 1 ? 15 : level === 2 ? 13 : 11);
+      y = ensureSpace(doc, y + 2, 10);
+      y = writeWrapped(doc, line.replace(/^#{1,3}\s+/, ""), page.marginX, y, page.width, { lineHeight: 6 });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      y += 2;
+      continue;
+    }
+
+    if (/^[-*]\s+/.test(line)) {
+      const content = line.replace(/^[-*]\s+/, "");
+      y = writeWrapped(doc, `- ${content}`, page.marginX + 4, y, page.width - 4, { lineHeight: 5 });
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      y = writeWrapped(doc, line, page.marginX + 4, y, page.width - 4, { lineHeight: 5 });
+      continue;
+    }
+
+    doc.setFont("helvetica", /\*\*.*\*\*/.test(line) ? "bold" : "normal");
+    doc.setFontSize(10);
+    y = writeWrapped(doc, line, page.marginX, y, page.width, { lineHeight: 5 });
+  }
+
+  return y;
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Unable to read the selected file."));
+    reader.readAsText(file);
+  });
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Unable to read the selected file."));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function extractResumeText(file) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+
+  if (["txt", "md", "csv"].includes(extension) || file.type.startsWith("text/")) {
+    return readFileAsText(file);
+  }
+
+  if (extension === "pdf" || file.type === "application/pdf") {
+    const buffer = await readFileAsArrayBuffer(file);
+    const text = extractSimplePdfText(buffer);
+    if (text.length < 120) {
+      throw new Error("This PDF appears to be scanned or compressed. Please paste the resume text or upload a text-based resume.");
+    }
+    return text;
+  }
+
+  throw new Error("Unsupported file type. Please upload .txt, .md, or a text-based .pdf resume.");
+}
+
+function extractSimplePdfText(buffer) {
+  const raw = new TextDecoder("latin1").decode(new Uint8Array(buffer));
+  const textObjects = [];
+  const simpleTextMatches = raw.matchAll(/\(([^()]{3,})\)\s*Tj/g);
+  const arrayTextMatches = raw.matchAll(/\[((?:.|\n)*?)\]\s*TJ/g);
+
+  for (const match of simpleTextMatches) {
+    textObjects.push(match[1]);
+  }
+
+  for (const match of arrayTextMatches) {
+    const parts = [...match[1].matchAll(/\(([^()]{2,})\)/g)].map((part) => part[1]);
+    if (parts.length) textObjects.push(parts.join(""));
+  }
+
+  return textObjects
+    .map((part) => part.replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\n/g, "\n"))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
   const [authMode, setAuthMode] = useState("login");
@@ -47,6 +245,8 @@ export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem("placement_theme") || "light");
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [exportError, setExportError] = useState("");
+  const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
 
   const isAuthenticated = Boolean(user && getToken());
@@ -193,26 +393,83 @@ export default function App() {
   }
 
   function exportPdf() {
-    const doc = new jsPDF();
-    const title = activeSession?.title || "Placement Chat";
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.text(title, 14, 18);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    setExportError("");
 
-    let y = 28;
-    messages.forEach((message) => {
-      const block = `${message.role.toUpperCase()} - ${new Date(message.timestamp).toLocaleString()}\n${message.content}`;
-      const lines = doc.splitTextToSize(block, 182);
-      if (y + lines.length * 5 > 280) {
-        doc.addPage();
-        y = 18;
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const title = activeSession?.title || "Placement Chat";
+      let y = page.marginTop;
+
+      doc.setProperties({
+        title,
+        subject: "Placement Guidance Chat Export",
+        creator: "Placement Guidance Assistant"
+      });
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      y = writeWrapped(doc, title, page.marginX, y, page.width, { lineHeight: 7 }) + 3;
+
+      messages.forEach((message, index) => {
+        y = ensureSpace(doc, y, 14);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        const label = message.role === "user" ? "You" : "Placement Assistant";
+        const time = message.timestamp ? new Date(message.timestamp).toLocaleString() : new Date().toLocaleString();
+        y = writeWrapped(doc, `${label} - ${time}`, page.marginX, y, page.width, { lineHeight: 5 });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        y = renderMarkdownToPdf(doc, message.content, y + 2) + 5;
+
+        if (index < messages.length - 1) {
+          y = ensureSpace(doc, y, 4);
+          doc.setDrawColor(220, 226, 234);
+          doc.line(page.marginX, y, page.marginX + page.width, y);
+          y += 6;
+        }
+      });
+
+      const pageCount = doc.getNumberOfPages();
+      for (let index = 1; index <= pageCount; index += 1) {
+        doc.setPage(index);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(104, 114, 132);
+        doc.text(`Page ${index} of ${pageCount}`, page.marginX + page.width - 24, 290);
       }
-      doc.text(lines, 14, y);
-      y += lines.length * 5 + 8;
-    });
-    doc.save(`${title}.pdf`);
+
+      doc.save(inferPdfName(messages, title));
+    } catch (error) {
+      console.error("PDF export failed", error);
+      setExportError("PDF export failed. Please try again after refreshing the page.");
+    }
+  }
+
+  async function handleResumeFileUpload(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const text = await extractResumeText(file);
+      if (!text.trim()) {
+        throw new Error("No readable text was found in this resume.");
+      }
+
+      await sendMessage(`Uploaded Resume Content:\n\n${text.slice(0, 22000)}`);
+    } catch (error) {
+      console.error("Resume upload failed", error);
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `## Resume Upload Failed\n\n${error.message}\n\nPlease upload a text-based resume file or paste the resume content directly into the chat for analysis.`,
+          timestamp: new Date().toISOString()
+        }
+      ]);
+    }
   }
 
   function downloadFile(filename, content, type) {
@@ -348,6 +605,7 @@ export default function App() {
             </button>
           </div>
         </header>
+        {exportError && <div className="inline-error" role="alert">{exportError}</div>}
 
         <section className="messages" aria-live="polite">
           {!messages.length ? (
@@ -371,6 +629,23 @@ export default function App() {
             sendMessage();
           }}
         >
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="sr-only"
+            accept=".txt,.md,.pdf,text/plain,application/pdf"
+            onChange={handleResumeFileUpload}
+          />
+          <button
+            className="composer-icon-button"
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Upload resume for analysis"
+            title="Upload resume for analysis"
+            disabled={loading}
+          >
+            <FileUp size={19} />
+          </button>
           <textarea
             value={input}
             placeholder="Ask about placements, resumes, DSA, interviews, internships..."
