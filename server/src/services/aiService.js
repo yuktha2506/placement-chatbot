@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { env } from "../config/env.js";
+import { getPersonalizedAnswer } from "./personalizationService.js";
 
 const openaiClient = env.openaiApiKey
   ? new OpenAI({ apiKey: env.openaiApiKey })
@@ -34,6 +35,11 @@ Formatting:
 - Do not invent current salary, placement percentage, or hiring statistics. Ask the student to verify current figures from official sources when exact freshness matters.`;
 
 export async function generateAiAnswer({ query, context, history }) {
+  const personalizedAnswer = getPersonalizedAnswer({ query, history });
+  if (personalizedAnswer) {
+    return personalizedAnswer;
+  }
+
   if (isServiceProductComparison(query, context)) {
     return serviceProductComparisonAnswer();
   }
