@@ -16,7 +16,7 @@ chatRouter.use(requireAuth);
 
 const chatSchema = Joi.object({
   sessionId: Joi.string().guid({ version: "uuidv4" }).allow(null),
-  message: Joi.string().min(1).max(4000).required()
+  message: Joi.string().min(1).max(25000).required()
 });
 
 chatRouter.post("/", validate(chatSchema), asyncHandler(async (req, res) => {
