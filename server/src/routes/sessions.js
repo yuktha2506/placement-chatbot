@@ -26,7 +26,7 @@ sessionsRouter.post("/", asyncHandler(async (req, res) => {
 sessionsRouter.get("/", asyncHandler(async (req, res) => {
   const [sessions] = await pool.execute(
     `SELECT s.id, s.title, s.created_at, s.updated_at,
-      (SELECT content FROM messages WHERE session_id = s.id ORDER BY timestamp DESC LIMIT 1) AS preview
+      (SELECT content FROM messages WHERE session_id = s.id AND role <> 'system' ORDER BY timestamp DESC LIMIT 1) AS preview
      FROM sessions s
      WHERE s.user_id = ?
      ORDER BY s.updated_at DESC`,
@@ -46,7 +46,7 @@ sessionsRouter.get("/:id", asyncHandler(async (req, res) => {
   }
 
   const [messages] = await pool.execute(
-    "SELECT id, role, content, timestamp FROM messages WHERE session_id = ? ORDER BY timestamp ASC",
+    "SELECT id, role, content, timestamp FROM messages WHERE session_id = ? AND role <> 'system' ORDER BY timestamp ASC",
     [req.params.id]
   );
 
