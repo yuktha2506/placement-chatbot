@@ -319,14 +319,17 @@ button:disabled {
 
 .chat-shell {
   min-width: 0;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
 }
 
 .topbar {
+  flex: 0 0 auto;
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(12px);
@@ -358,9 +361,10 @@ button:disabled {
 }
 
 .messages {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 26px clamp(16px, 4vw, 48px);
+  padding: 26px clamp(16px, 4vw, 48px) 118px;
   overscroll-behavior: contain;
 }
 
@@ -574,8 +578,11 @@ button:disabled {
 }
 
 .composer {
-  margin: 0 clamp(16px, 4vw, 48px) 20px;
-  align-self: end;
+  position: absolute;
+  left: clamp(16px, 4vw, 48px);
+  right: clamp(16px, 4vw, 48px);
+  bottom: 20px;
+  margin: 0;
   min-height: 64px;
   max-height: 180px;
   padding: 9px;
@@ -586,7 +593,6 @@ button:disabled {
   grid-template-columns: 44px 1fr 44px;
   gap: 9px;
   box-shadow: var(--shadow);
-  position: relative;
   z-index: 5;
 }
 
@@ -704,8 +710,13 @@ button:disabled {
   }
 
   .composer {
-    margin-inline: 12px;
-    margin-bottom: 12px;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .messages {
+    padding-bottom: 106px;
   }
 }
 
