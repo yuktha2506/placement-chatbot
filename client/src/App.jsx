@@ -172,15 +172,6 @@ function renderMarkdownToPdf(doc, markdown, y) {
   return y;
 }
 
-function readFileAsText(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Unable to read the selected file."));
-    reader.readAsText(file);
-  });
-}
-
 function readFileAsArrayBuffer(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -190,45 +181,14 @@ function readFileAsArrayBuffer(file) {
   });
 }
 
-async function extractResumeText(file) {
-  const extension = file.name.split(".").pop()?.toLowerCase();
-
-  if (["txt", "md", "csv"].includes(extension) || file.type.startsWith("text/")) {
-    return readFileAsText(file);
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
-
-  if (extension === "pdf" || file.type === "application/pdf") {
-    const buffer = await readFileAsArrayBuffer(file);
-    const text = extractSimplePdfText(buffer);
-    if (text.length < 120) {
-      throw new Error("This PDF appears to be scanned or compressed. Please paste the resume text or upload a text-based resume.");
-    }
-    return text;
-  }
-
-  throw new Error("Unsupported file type. Please upload .txt, .md, or a text-based .pdf resume.");
-}
-
-function extractSimplePdfText(buffer) {
-  const raw = new TextDecoder("latin1").decode(new Uint8Array(buffer));
-  const textObjects = [];
-  const simpleTextMatches = raw.matchAll(/\(([^()]{3,})\)\s*Tj/g);
-  const arrayTextMatches = raw.matchAll(/\[((?:.|\n)*?)\]\s*TJ/g);
-
-  for (const match of simpleTextMatches) {
-    textObjects.push(match[1]);
-  }
-
-  for (const match of arrayTextMatches) {
-    const parts = [...match[1].matchAll(/\(([^()]{2,})\)/g)].map((part) => part[1]);
-    if (parts.length) textObjects.push(parts.join(""));
-  }
-
-  return textObjects
-    .map((part) => part.replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\n/g, "\n"))
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return btoa(binary);
 }
 
 export default function App() {
@@ -246,6 +206,8 @@ export default function App() {
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [exportError, setExportError] = useState("");
+  const [resumeUploading, setResumeUploading] = useState(false);
+  const [resumeContext, setResumeContext] = useState(null);
   const fileInputRef = useRef(null);
   const bottomRef = useRef(null);
 
@@ -320,6 +282,7 @@ export default function App() {
     const session = await api.getSession(id);
     setActiveSessionId(id);
     setMessages(session.messages);
+    setResumeContext(null);
     setSidebarOpen(false);
   }
 
@@ -337,6 +300,7 @@ export default function App() {
     if (activeSessionId === id) {
       setActiveSessionId(null);
       setMessages([]);
+      setResumeContext(null);
     }
     await refreshSessions();
   }
@@ -451,24 +415,68 @@ export default function App() {
     event.target.value = "";
     if (!file) return;
 
-    try {
-      const text = await extractResumeText(file);
-      if (!text.trim()) {
-        throw new Error("No readable text was found in this resume.");
-      }
-
-      await sendMessage(`Uploaded Resume Content:\n\n${text.slice(0, 22000)}`);
-    } catch (error) {
-      console.error("Resume upload failed", error);
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!["pdf", "docx", "txt"].includes(extension)) {
       setMessages((current) => [
         ...current,
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: `## Resume Upload Failed\n\n${error.message}\n\nPlease upload a text-based resume file or paste the resume content directly into the chat for analysis.`,
+          content: "## Resume Upload Failed\n\nPlease upload a PDF, DOCX, or TXT resume.",
           timestamp: new Date().toISOString()
         }
       ]);
+      return;
+    }
+
+    setResumeUploading(true);
+    try {
+      console.info("[resume-upload] Reading file", { name: file.name, type: file.type, size: file.size });
+      const buffer = await readFileAsArrayBuffer(file);
+      const result = await api.analyzeResume({
+        sessionId: activeSessionId,
+        fileName: file.name,
+        mimeType: file.type,
+        base64: arrayBufferToBase64(buffer),
+        targetRole: resumeContext?.targetRoles?.[0] || ""
+      });
+
+      setActiveSessionId(result.sessionId);
+      setResumeContext({
+        parsedResume: result.parsedResume,
+        atsScore: result.atsScore,
+        missingSkills: result.missingSkills,
+        targetRoles: result.targetRoles
+      });
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: `Uploaded resume for analysis: ${file.name}`,
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: result.answer,
+          timestamp: new Date().toISOString()
+        }
+      ]);
+      await refreshSessions();
+    } catch (error) {
+      console.error("[resume-upload] Failed", error);
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: `## Resume Upload Failed\n\n${error.message || "Unable to extract text from the uploaded resume."}`,
+          timestamp: new Date().toISOString()
+        }
+      ]);
+    } finally {
+      setResumeUploading(false);
     }
   }
 
@@ -633,7 +641,7 @@ export default function App() {
             ref={fileInputRef}
             type="file"
             className="sr-only"
-            accept=".txt,.md,.pdf,text/plain,application/pdf"
+            accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={handleResumeFileUpload}
           />
           <button
@@ -642,7 +650,7 @@ export default function App() {
             onClick={() => fileInputRef.current?.click()}
             aria-label="Upload resume for analysis"
             title="Upload resume for analysis"
-            disabled={loading}
+            disabled={loading || resumeUploading}
           >
             <FileUp size={19} />
           </button>
@@ -658,7 +666,7 @@ export default function App() {
             }}
             rows={1}
           />
-          <button className="send-button" type="submit" disabled={!input.trim() || loading} aria-label="Send message">
+          <button className="send-button" type="submit" disabled={!input.trim() || loading || resumeUploading} aria-label="Send message">
             <Send size={19} />
           </button>
         </form>
