@@ -41,7 +41,13 @@ chatRouter.post("/", validate(chatSchema), asyncHandler(async (req, res) => {
   }
 
   const [existingMessages] = await pool.execute(
-    "SELECT role, content FROM messages WHERE session_id = ? ORDER BY timestamp ASC LIMIT 20",
+    `SELECT role, content FROM (
+      SELECT role, content, timestamp FROM messages
+      WHERE session_id = ?
+      ORDER BY timestamp DESC
+      LIMIT 80
+    ) recent_messages
+    ORDER BY timestamp ASC`,
     [sessionId]
   );
 
