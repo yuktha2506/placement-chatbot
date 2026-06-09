@@ -209,7 +209,7 @@ export default function App() {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeContext, setResumeContext] = useState(null);
   const fileInputRef = useRef(null);
-  const bottomRef = useRef(null);
+  const messagesRef = useRef(null);
 
   const isAuthenticated = Boolean(user && getToken());
 
@@ -225,7 +225,9 @@ export default function App() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
   const activeSession = useMemo(
@@ -615,7 +617,7 @@ export default function App() {
         </header>
         {exportError && <div className="inline-error" role="alert">{exportError}</div>}
 
-        <section className="messages" aria-live="polite">
+        <section ref={messagesRef} className="messages" aria-live="polite">
           {!messages.length ? (
             <Welcome onPick={sendMessage} />
           ) : (
@@ -627,7 +629,6 @@ export default function App() {
               <span>Placement Assistant is typing...</span>
             </div>
           )}
-          <div ref={bottomRef} />
         </section>
 
         <form
