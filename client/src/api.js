@@ -51,6 +51,7 @@ async function request(path, options = {}) {
 export const api = {
   login: (payload) => request("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   register: (payload) => request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+  analyzeResume: (payload) => request("/resume/analyze", { method: "POST", body: JSON.stringify(payload) }),
   createSession: () => request("/sessions", { method: "POST" }),
   listSessions: () => request("/sessions"),
   getSession: (id) => request(`/sessions/${id}`),
