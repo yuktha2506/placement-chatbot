@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { env } from "../config/env.js";
 import { getPersonalizedAnswer } from "./personalizationService.js";
+import { answerWithResumeContext, getResumeContext } from "./resumeAnalysisService.js";
 
 const openaiClient = env.openaiApiKey
   ? new OpenAI({ apiKey: env.openaiApiKey })
@@ -35,6 +36,12 @@ Formatting:
 - Do not invent current salary, placement percentage, or hiring statistics. Ask the student to verify current figures from official sources when exact freshness matters.`;
 
 export async function generateAiAnswer({ query, context, history }) {
+  const resumeContext = getResumeContext(history);
+  const resumeAwareAnswer = answerWithResumeContext(query, resumeContext);
+  if (resumeAwareAnswer) {
+    return resumeAwareAnswer;
+  }
+
   const personalizedAnswer = getPersonalizedAnswer({ query, history });
   if (personalizedAnswer) {
     return personalizedAnswer;
@@ -44,7 +51,7 @@ export async function generateAiAnswer({ query, context, history }) {
     return serviceProductComparisonAnswer();
   }
 
-  const messages = buildMessages({ query, context, history });
+  const messages = buildMessages({ query, context, history, resumeContext });
 
   try {
     if (env.aiProvider === "huggingface") {
@@ -75,17 +82,21 @@ export async function generateAiAnswer({ query, context, history }) {
   return fallbackAnswer(query, context);
 }
 
-function buildMessages({ query, context, history }) {
+function buildMessages({ query, context, history, resumeContext }) {
   return [
     { role: "system", content: systemPrompt },
+    ...(resumeContext ? [{
+      role: "system",
+      content: `Use this uploaded resume context when relevant. Do not ask the user to upload the resume again.\n\n${JSON.stringify(resumeContext)}`
+    }] : []),
     {
       role: "system",
       content: `Use the knowledge base context first. If the answer is not available there, answer cautiously from general placement knowledge and clearly state limitations.\n\nKnowledge Base Context:\n${context}`
     },
     ...history.slice(-10).map((message) => ({
-      role: message.role,
+      role: message.role === "system" ? "system" : message.role,
       content: message.content
-    })),
+    })).filter((message) => !message.content?.startsWith("RESUME_CONTEXT_JSON:")),
     { role: "user", content: query }
   ];
 }
