@@ -27,5 +27,6 @@ export const env = {
     "your_huggingface_token",
     "your_huggingface_api_key"
   ]),
-  huggingFaceModel: process.env.HF_MODEL || "openai/gpt-oss-120b:fastest"
+  huggingFaceModel: process.env.HF_MODEL || "openai/gpt-oss-120b:fastest",
+  pythonPath: process.env.PYTHON_PATH || "C:\\Users\\Admin\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe"
 };
