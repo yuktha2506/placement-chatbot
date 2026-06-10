@@ -10,8 +10,29 @@ import { sessionsRouter } from "./routes/sessions.js";
 
 const app = express();
 
+// Configure CORS to accept localhost on any port in development
+const corsOptions = {
+  credentials: true,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // In development, allow all localhost origins
+    if (env.nodeEnv === "development" && origin.includes("localhost")) {
+      return callback(null, true);
+    }
+    
+    // In production, use the configured client URL
+    if (origin === env.clientUrl) {
+      return callback(null, true);
+    }
+    
+    callback(new Error("CORS not allowed"));
+  }
+};
+
 app.use(helmet());
-app.use(cors({ origin: env.clientUrl, credentials: true }));
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "12mb" }));
 app.use(rateLimit({
   windowMs: 60 * 1000,
