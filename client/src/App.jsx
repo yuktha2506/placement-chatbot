@@ -207,9 +207,11 @@ export default function App() {
   const [editingTitle, setEditingTitle] = useState("");
   const [exportError, setExportError] = useState("");
   const [resumeUploading, setResumeUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [resumeContext, setResumeContext] = useState(null);
   const fileInputRef = useRef(null);
   const messagesRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const isAuthenticated = Boolean(user && getToken());
 
@@ -228,7 +230,13 @@ export default function App() {
     const container = messagesRef.current;
     if (!container) return;
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, resumeUploading]);
+
+  useEffect(() => {
+    if (!input && textareaRef.current) {
+      textareaRef.current.style.height = "44px";
+    }
+  }, [input]);
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeSessionId),
@@ -257,10 +265,18 @@ export default function App() {
     try {
       const payload = authMode === "register" ? authForm : { email: authForm.email, password: authForm.password };
       const result = authMode === "register" ? await api.register(payload) : await api.login(payload);
+      
+      if (!result || !result.user || !result.token) {
+        setAuthError("Invalid server response. Please try again.");
+        return;
+      }
+      
       setAuth(result);
       setUser(result.user);
     } catch (error) {
-      setAuthError(error.message);
+      const message = error instanceof Error ? error.message : "An error occurred during authentication";
+      setAuthError(message);
+      console.error("[Auth Error]", { error, message });
     }
   }
 
@@ -432,9 +448,11 @@ export default function App() {
     }
 
     setResumeUploading(true);
+    setUploadProgress(12);
     try {
       console.info("[resume-upload] Reading file", { name: file.name, type: file.type, size: file.size });
       const buffer = await readFileAsArrayBuffer(file);
+      setUploadProgress(38);
       const result = await api.analyzeResume({
         sessionId: activeSessionId,
         fileName: file.name,
@@ -442,6 +460,7 @@ export default function App() {
         base64: arrayBufferToBase64(buffer),
         targetRole: resumeContext?.targetRoles?.[0] || ""
       });
+      setUploadProgress(86);
 
       setActiveSessionId(result.sessionId);
       setResumeContext({
@@ -466,6 +485,7 @@ export default function App() {
         }
       ]);
       await refreshSessions();
+      setUploadProgress(100);
     } catch (error) {
       console.error("[resume-upload] Failed", error);
       setMessages((current) => [
@@ -478,7 +498,10 @@ export default function App() {
         }
       ]);
     } finally {
-      setResumeUploading(false);
+      window.setTimeout(() => {
+        setResumeUploading(false);
+        setUploadProgress(0);
+      }, 250);
     }
   }
 
@@ -617,7 +640,7 @@ export default function App() {
         </header>
         {exportError && <div className="inline-error" role="alert">{exportError}</div>}
 
-        <section ref={messagesRef} className="messages" aria-live="polite">
+        <section ref={messagesRef} className="messages" aria-live="polite" aria-busy={loading || resumeUploading}>
           {!messages.length ? (
             <Welcome onPick={sendMessage} />
           ) : (
@@ -629,48 +652,76 @@ export default function App() {
               <span>Placement Assistant is typing...</span>
             </div>
           )}
+          {resumeUploading && (
+            <div className="message-row assistant analysis-loading" role="status">
+              <div className="avatar" aria-hidden="true">
+                <Bot size={17} />
+              </div>
+              <div className="bubble">
+                <div className="upload-status">
+                  <span className="spinner" aria-hidden="true" />
+                  <div>
+                    <strong>Analyzing resume</strong>
+                    <span>Extracting content and preparing ATS insights...</span>
+                  </div>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="progress-track" aria-hidden="true">
+                  <span style={{ width: `${uploadProgress}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
-        <form
-          className="composer"
-          onSubmit={(event) => {
-            event.preventDefault();
-            sendMessage();
-          }}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="sr-only"
-            accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={handleResumeFileUpload}
-          />
-          <button
-            className="composer-icon-button"
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            aria-label="Upload resume for analysis"
-            title="Upload resume for analysis"
-            disabled={loading || resumeUploading}
-          >
-            <FileUp size={19} />
-          </button>
-          <textarea
-            value={input}
-            placeholder="Ask about placements, resumes, DSA, interviews, internships..."
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                sendMessage();
-              }
+        <div className="composer-shell">
+          <form
+            className="composer"
+            onSubmit={(event) => {
+              event.preventDefault();
+              sendMessage();
             }}
-            rows={1}
-          />
-          <button className="send-button" type="submit" disabled={!input.trim() || loading || resumeUploading} aria-label="Send message">
-            <Send size={19} />
-          </button>
-        </form>
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="sr-only"
+              accept=".txt,.pdf,.docx,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleResumeFileUpload}
+            />
+            <button
+              className="composer-icon-button"
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Upload resume for analysis"
+              title="Upload resume for analysis"
+              disabled={loading || resumeUploading}
+            >
+              {resumeUploading ? <span className="spinner" aria-hidden="true" /> : <FileUp size={19} />}
+            </button>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              aria-label="Chat message"
+              placeholder="Ask about placements, resumes, DSA, interviews, internships..."
+              onChange={(event) => setInput(event.target.value)}
+              onInput={(event) => {
+                event.currentTarget.style.height = "44px";
+                event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 160)}px`;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  sendMessage();
+                }
+              }}
+              rows={1}
+            />
+            <button className="send-button" type="submit" disabled={!input.trim() || loading || resumeUploading} aria-label="Send message">
+              <Send size={19} />
+            </button>
+          </form>
+        </div>
       </main>
     </div>
   );
@@ -683,7 +734,7 @@ function Welcome({ onPick }) {
         <Bot size={32} />
       </div>
       <h2>Welcome to your virtual placement mentor.</h2>
-      <p>Ask about companies, eligibility, interview preparation, resumes, DSA, internships, or career paths.</p>
+      <p>Upload your resume or ask a placement-related question.</p>
       <div className="suggestions">
         {suggestions.map((suggestion) => (
           <button key={suggestion} onClick={() => onPick(suggestion)}>
@@ -697,9 +748,10 @@ function Welcome({ onPick }) {
 
 function MessageBubble({ message }) {
   const isUser = message.role === "user";
+  const isAtsReport = !isUser && /ATS Score|Resume-Based ATS|Skill Gap Report|Placement Readiness/i.test(message.content);
 
   return (
-    <article className={`message-row ${isUser ? "user" : "assistant"}`}>
+    <article className={`message-row ${isUser ? "user" : "assistant"} ${isAtsReport ? "ats-report" : ""}`}>
       <div className="avatar" aria-hidden="true">
         {isUser ? <User size={17} /> : <Bot size={17} />}
       </div>
