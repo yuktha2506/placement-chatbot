@@ -165,21 +165,23 @@ Use this as a starting point and verify current company-specific criteria, salar
 
 function isServiceProductComparison(query, context) {
   const normalizedQuery = query.toLowerCase();
-  const normalizedContext = context.toLowerCase();
 
-  return (
-    normalizedContext.includes("difference between service-based and product-based") ||
-    (
-      normalizedQuery.includes("service") &&
-      normalizedQuery.includes("product") &&
-      (
-        normalizedQuery.includes("difference") ||
-        normalizedQuery.includes("different") ||
-        normalizedQuery.includes("compare") ||
-        normalizedQuery.includes("vs")
-      )
-    )
-  );
+  // Only trigger for explicit comparison requests
+  const hasServiceAndProduct = normalizedQuery.includes("service") && normalizedQuery.includes("product");
+  
+  // Check for explicit comparison keywords
+  const isExplicitComparison = 
+    normalizedQuery.includes("difference between") ||
+    normalizedQuery.includes("compare") ||
+    normalizedQuery.includes(" vs ") ||
+    normalizedQuery.includes("versus") ||
+    normalizedQuery.includes("service vs product") ||
+    normalizedQuery.includes("product vs service");
+
+  // Don't trigger for "what is" questions
+  const isWhatIsQuestion = normalizedQuery.startsWith("what is");
+
+  return hasServiceAndProduct && isExplicitComparison && !isWhatIsQuestion;
 }
 
 function serviceProductComparisonAnswer() {
