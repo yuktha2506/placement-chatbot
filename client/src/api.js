@@ -28,24 +28,46 @@ export function getStoredUser() {
 
 async function request(path, options = {}) {
   const token = getToken();
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers
+  
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers
+      }
+    });
+
+    if (!response.ok) {
+      let errorMessage = "Request failed.";
+      try {
+        const error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } catch {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      const requestError = new Error(errorMessage);
+      requestError.status = response.status;
+      throw requestError;
     }
-  });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    const requestError = new Error(error.message || "Request failed.");
-    requestError.status = response.status;
-    throw requestError;
+    if (response.status === 204) return null;
+    
+    try {
+      return await response.json();
+    } catch {
+      throw new Error("Invalid response from server");
+    }
+  } catch (error) {
+    // If it's already a custom error, rethrow it
+    if (error.status) throw error;
+    // If it's a fetch error (network issue), provide better message
+    if (error instanceof TypeError) {
+      throw new Error("Failed to connect to server. Make sure the server is running.");
+    }
+    throw error;
   }
-
-  if (response.status === 204) return null;
-  return response.json();
 }
 
 export const api = {
