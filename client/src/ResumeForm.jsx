@@ -37,6 +37,12 @@ export default function ResumeForm({ onClose }) {
     setLoading(true);
 
     try {
+      if (!formData.fullName || !formData.email) {
+        setError("Please fill in all required fields (Name, Email)");
+        setLoading(false);
+        return;
+      }
+
       const response = await api.generateResume(formData);
       const blob = new Blob([response], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -47,7 +53,9 @@ export default function ResumeForm({ onClose }) {
       URL.revokeObjectURL(url);
       onClose();
     } catch (err) {
-      setError(err.message || "Failed to generate resume");
+      console.error("Resume generation error:", err);
+      const errorMsg = err.message || "Failed to generate resume";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
