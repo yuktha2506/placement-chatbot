@@ -35,7 +35,7 @@ Formatting:
 - Keep markdown tables clean: one row per line, with a blank line before and after the table.
 - Do not invent current salary, placement percentage, or hiring statistics. Ask the student to verify current figures from official sources when exact freshness matters.`;
 
-export async function generateAiAnswer({ query, context, history }) {
+export async function generateAiAnswer({ query, context, history, intent = null }) {
   const resumeContext = getResumeContext(history);
   const resumeAwareAnswer = answerWithResumeContext(query, resumeContext);
   if (resumeAwareAnswer) {
@@ -45,10 +45,6 @@ export async function generateAiAnswer({ query, context, history }) {
   const personalizedAnswer = getPersonalizedAnswer({ query, history });
   if (personalizedAnswer) {
     return personalizedAnswer;
-  }
-
-  if (isServiceProductComparison(query, context)) {
-    return serviceProductComparisonAnswer();
   }
 
   const messages = buildMessages({ query, context, history, resumeContext });
@@ -134,23 +130,19 @@ async function generateWithOpenAi(messages, query, context) {
 
 function fallbackAnswer(query, context) {
   if (context.startsWith("No directly matching")) {
-    return `## I Need a Little More Context
+    return `I could not find information about that in the placement knowledge base.
 
-I could not find a confident match in the placement knowledge base for your question.
+**What I can help with:**
+- Service-based and product-based companies
+- Resume building and optimization
+- Placement preparation strategies
+- Aptitude, DSA, and interview guidance
+- Career paths and company information
 
-**What I can help with**
-• Placement preparation  
-• Service-based and product-based companies  
-• Resume, aptitude, DSA, and interview guidance  
-• Career paths and internship preparation  
-
-**Summary**
-Please rephrase your question with a placement, interview, company, resume, aptitude, or career focus.`;
+Please rephrase your question with a placement, career, resume, or interview focus.`;
   }
 
-  return `## Placement Guidance
-
-Here is the most relevant information from the placement knowledge base for: **${query}**
+  return `Here is the most relevant information from the placement knowledge base:
 
 ${context
   .split("---")
@@ -158,48 +150,5 @@ ${context
   .join("\n\n")
   .replace(/Source \d+:/g, "###")}
 
-## Summary
-
-Use this as a starting point and verify current company-specific criteria, salary packages, and hiring numbers from official placement notices or company career pages.`;
-}
-
-function isServiceProductComparison(query, context) {
-  const normalizedQuery = query.toLowerCase();
-
-  // Only trigger for explicit comparison requests
-  const hasServiceAndProduct = normalizedQuery.includes("service") && normalizedQuery.includes("product");
-  
-  // Check for explicit comparison keywords
-  const isExplicitComparison = 
-    normalizedQuery.includes("difference between") ||
-    normalizedQuery.includes("compare") ||
-    normalizedQuery.includes(" vs ") ||
-    normalizedQuery.includes("versus") ||
-    normalizedQuery.includes("service vs product") ||
-    normalizedQuery.includes("product vs service");
-
-  // Don't trigger for "what is" questions
-  const isWhatIsQuestion = normalizedQuery.startsWith("what is");
-
-  return hasServiceAndProduct && isExplicitComparison && !isWhatIsQuestion;
-}
-
-function serviceProductComparisonAnswer() {
-  return `## Service-Based vs Product-Based Companies
-
-Service-based companies mainly deliver software, consulting, and IT services for clients. Product-based companies build, own, and improve their own products or platforms.
-
-| Feature | Service-Based Companies | Product-Based Companies |
-| --- | --- | --- |
-| Main Focus | Client projects and services | Own products and platforms |
-| Work Type | Development, maintenance, support, testing, consulting | Product engineering, feature development, scaling, platform reliability |
-| Examples | TCS, Infosys, Wipro, HCLTech, Accenture, Cognizant | Google, Microsoft, Amazon, Adobe, Oracle, Salesforce, Atlassian |
-| Hiring Volume | Usually higher fresher hiring volume | Usually more selective hiring |
-| Skills Tested | Aptitude, communication, coding basics, CS fundamentals | DSA, problem solving, projects, CS fundamentals, coding depth |
-| Salary Trend | Usually moderate and stable for freshers | Often higher, but varies by role, company, location, and market |
-| Growth Pattern | Stable, process-oriented, client exposure | Fast learning in product, engineering, and ownership-focused roles |
-
-## Summary
-
-Choose service-based companies for structured training, stable hiring, and client exposure. Choose product-based companies if you want deeper product engineering work and are prepared for stronger DSA and technical interview expectations.`;
+You can verify current company details, salary packages, and hiring criteria from official placement notices or company career pages.`;
 }
