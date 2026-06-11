@@ -43,7 +43,23 @@ export default function ResumeForm({ onClose }) {
         return;
       }
 
-      const response = await api.generateResume(formData);
+      const response = await api.generateResume({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        linkedin: formData.linkedin,
+        github: formData.github,
+        college: formData.college,
+        branch: formData.branch,
+        cgpa: parseFloat(formData.cgpa) || 0,
+        graduationYear: parseInt(formData.graduationYear, 10) || new Date().getFullYear(),
+        experience: formData.experience,
+        projects: formData.projects,
+        skills: formData.skills,
+        certifications: formData.certifications,
+        leadership: formData.leadership
+      });
+
       const blob = new Blob([response], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
