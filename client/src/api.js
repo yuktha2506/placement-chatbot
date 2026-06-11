@@ -99,7 +99,7 @@ async function requestBlob(path, options = {}) {
   } catch (error) {
     if (error.status) throw error;
     if (error instanceof TypeError) {
-      throw new Error("Failed to connect to server. Make sure the server is running.");
+      throw new Error(`Unable to reach the server at ${API_BASE}. Please check if the backend is running.`);
     }
     throw error;
   }
