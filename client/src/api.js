@@ -70,10 +70,46 @@ async function request(path, options = {}) {
   }
 }
 
+async function requestBlob(path, options = {}) {
+  const token = getToken();
+
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers
+      }
+    });
+
+    if (!response.ok) {
+      let errorMessage = "Request failed.";
+      try {
+        const error = await response.json();
+        errorMessage = error.message || errorMessage;
+      } catch {
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      const requestError = new Error(errorMessage);
+      requestError.status = response.status;
+      throw requestError;
+    }
+
+    return await response.blob();
+  } catch (error) {
+    if (error.status) throw error;
+    if (error instanceof TypeError) {
+      throw new Error("Failed to connect to server. Make sure the server is running.");
+    }
+    throw error;
+  }
+}
+
 export const api = {
   login: (payload) => request("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   register: (payload) => request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
   analyzeResume: (payload) => request("/resume/analyze", { method: "POST", body: JSON.stringify(payload) }),
+  generateResume: (payload) => requestBlob("/resume/generate", { method: "POST", body: JSON.stringify(payload), headers: { "Content-Type": "application/json" } }),
   createSession: () => request("/sessions", { method: "POST" }),
   listSessions: () => request("/sessions"),
   getSession: (id) => request(`/sessions/${id}`),
