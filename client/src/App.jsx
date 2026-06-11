@@ -16,9 +16,11 @@ import {
   Sun,
   Trash2,
   User,
-  X
+  X,
+  FileText
 } from "lucide-react";
 import { api, clearAuth, getStoredUser, getToken, setAuth } from "./api";
+import ResumeForm from "./ResumeForm";
 
 const suggestions = [
   "What is a service-based company?",
@@ -209,6 +211,7 @@ export default function App() {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [resumeContext, setResumeContext] = useState(null);
+  const [showResumeForm, setShowResumeForm] = useState(false);
   const fileInputRef = useRef(null);
   const messagesRef = useRef(null);
   const textareaRef = useRef(null);
@@ -628,6 +631,10 @@ export default function App() {
             <p>{user.name}</p>
           </div>
           <div className="export-actions">
+            <button className="icon-button" onClick={() => setShowResumeForm(true)} aria-label="Generate resume">
+              <FileText size={18} />
+              <span>Resume</span>
+            </button>
             <button className="icon-button" disabled={!messages.length} onClick={exportTxt} aria-label="Export chat as TXT">
               <Download size={18} />
               <span>TXT</span>
@@ -723,6 +730,7 @@ export default function App() {
           </form>
         </div>
       </main>
+      {showResumeForm && <ResumeForm onClose={() => setShowResumeForm(false)} />}
     </div>
   );
 }
