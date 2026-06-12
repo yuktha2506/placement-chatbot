@@ -622,12 +622,27 @@ textarea:focus-visible {
   gap: 7px;
 }
 
-.sources span {
+.sources span,
+.suggestion-chips button {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px 8px;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.suggestion-chips button {
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: border 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.suggestion-chips button:hover,
+.suggestion-chips button:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+  background: rgba(20, 128, 119, 0.08);
 }
 
 .typing {
