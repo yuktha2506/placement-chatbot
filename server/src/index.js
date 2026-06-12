@@ -18,7 +18,10 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     // In development, allow all localhost origins
-    if (env.nodeEnv === "development" && origin.includes("localhost")) {
+    if (
+      env.nodeEnv === "development" &&
+      (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.includes("[::1]"))
+    ) {
       return callback(null, true);
     }
     
@@ -34,6 +37,13 @@ const corsOptions = {
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "12mb" }));
+app.use((req, res, next) => {
+  console.info("[http] request", { method: req.method, path: req.originalUrl });
+  res.on("finish", () => {
+    console.info("[http] response", { method: req.method, path: req.originalUrl, status: res.statusCode });
+  });
+  next();
+});
 app.use(rateLimit({
   windowMs: 60 * 1000,
   limit: 60,
@@ -61,6 +71,16 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(env.port, () => {
+const server = app.listen(env.port, () => {
   console.log(`Placement chatbot server running on http://localhost:${env.port}`);
+});
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${env.port} is already in use. Another backend server is already running.`);
+    console.error("Use the existing server, or stop the old process before starting a new one.");
+    process.exit(1);
+  }
+
+  throw error;
 });
