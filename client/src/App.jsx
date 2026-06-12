@@ -776,35 +776,23 @@ function MessageBubble({ message, onSuggestionClick }) {
 </div>
 
 {message.suggestions?.length > 0 && (
-  <div className="suggestions followup-suggestions">
+  <div className="sources suggestion-chips">
     {message.suggestions.map((s) => (
       <button
-  key={s}
-  type="button"
-  onClick={() => onSuggestionClick(s)}
->
-  {s}
-</button>
+        key={s}
+        type="button"
+        onClick={() => onSuggestionClick(s)}
+      >
+        {s}
+      </button>
     ))}
   </div>
 )}
 
-{message.sources?.length > 0 && (
+{message.sources?.length > 0 && !message.suggestions?.length && (
   <div className="sources">
     {message.sources.map((source) => (
       <span key={source.id}>{source.title}</span>
-    ))}
-  </div>
-)}
-        {!isUser && (
-  <div className="suggestions followup-suggestions">
-    {suggestions.slice(0, 4).map((suggestion) => (
-      <button
-        key={suggestion}
-        onClick={() => onSuggestionClick(suggestion)}
-      >
-        {suggestion}
-      </button>
     ))}
   </div>
 )}
