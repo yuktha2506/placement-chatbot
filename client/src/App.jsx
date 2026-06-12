@@ -344,15 +344,16 @@ export default function App() {
       const result = await api.chat({ sessionId: activeSessionId, message: text });
       setActiveSessionId(result.sessionId);
       setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: result.answer,
-          timestamp: new Date().toISOString(),
-          sources: result.sources
-        }
-      ]);
+  ...current,
+  {
+    id: crypto.randomUUID(),
+    role: "assistant",
+    content: result.answer,
+    suggestions: result.suggestions || [],
+    timestamp: new Date().toISOString(),
+    sources: result.sources
+  }
+]);
       await refreshSessions();
     } catch (error) {
       setMessages((current) => [
@@ -651,7 +652,13 @@ export default function App() {
           {!messages.length ? (
             <Welcome onPick={sendMessage} />
           ) : (
-            messages.map((message) => <MessageBubble key={message.id} message={message} />)
+            messages.map((message) => (
+  <MessageBubble
+    key={message.id}
+    message={message}
+    onSuggestionClick={sendMessage}
+  />
+))
           )}
           {loading && (
             <div className="typing">
@@ -743,18 +750,12 @@ function Welcome({ onPick }) {
       </div>
       <h2>Welcome to your virtual placement mentor.</h2>
       <p>Upload your resume or ask a placement-related question.</p>
-      <div className="suggestions">
-        {suggestions.map((suggestion) => (
-          <button key={suggestion} onClick={() => onPick(suggestion)}>
-            {suggestion}
-          </button>
-        ))}
-      </div>
+      <div/>
     </div>
   );
 }
 
-function MessageBubble({ message }) {
+function MessageBubble({ message, onSuggestionClick }) {
   const isUser = message.role === "user";
   const isAtsReport = !isUser && /ATS Score|Resume-Based ATS|Skill Gap Report|Placement Readiness/i.test(message.content);
 
@@ -769,13 +770,44 @@ function MessageBubble({ message }) {
           <time>{message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : nowTime()}</time>
         </div>
         <div className="markdown-body">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
-        </div>
-        {message.sources?.length > 0 && (
-          <div className="sources">
-            {message.sources.map((source) => <span key={source.id}>{source.title}</span>)}
-          </div>
-        )}
+  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+    {message.content}
+  </ReactMarkdown>
+</div>
+
+{message.suggestions?.length > 0 && (
+  <div className="suggestions followup-suggestions">
+    {message.suggestions.map((s) => (
+      <button
+  key={s}
+  type="button"
+  onClick={() => onSuggestionClick(s)}
+>
+  {s}
+</button>
+    ))}
+  </div>
+)}
+
+{message.sources?.length > 0 && (
+  <div className="sources">
+    {message.sources.map((source) => (
+      <span key={source.id}>{source.title}</span>
+    ))}
+  </div>
+)}
+        {!isUser && (
+  <div className="suggestions followup-suggestions">
+    {suggestions.slice(0, 4).map((suggestion) => (
+      <button
+        key={suggestion}
+        onClick={() => onSuggestionClick(suggestion)}
+      >
+        {suggestion}
+      </button>
+    ))}
+  </div>
+)}
       </div>
     </article>
   );
