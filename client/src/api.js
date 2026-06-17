@@ -1,5 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+// Log API configuration for debugging
+if (typeof window !== 'undefined') {
+  console.log("[API Configuration]", {
+    apiBase: API_BASE,
+    viteApiUrl: import.meta.env.VITE_API_URL,
+    mode: import.meta.env.MODE
+  });
+}
+
 export function getToken() {
   return localStorage.getItem("placement_token");
 }
@@ -28,9 +37,12 @@ export function getStoredUser() {
 
 async function request(path, options = {}) {
   const token = getToken();
+  const url = `${API_BASE}${path}`;
+  const method = options.method || "GET";
+  console.info("[api] request:start", { method, path, url });
   
   try {
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(url, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -38,6 +50,7 @@ async function request(path, options = {}) {
         ...options.headers
       }
     });
+    console.info("[api] request:response", { method, path, status: response.status });
 
     if (!response.ok) {
       let errorMessage = "Request failed.";
@@ -49,6 +62,7 @@ async function request(path, options = {}) {
       }
       const requestError = new Error(errorMessage);
       requestError.status = response.status;
+      requestError.path = path;
       throw requestError;
     }
 
@@ -64,7 +78,8 @@ async function request(path, options = {}) {
     if (error.status) throw error;
     // If it's a fetch error (network issue), provide better message
     if (error instanceof TypeError) {
-      throw new Error("Failed to connect to server. Make sure the server is running.");
+      const errorMsg = `Backend server is not running or is unreachable at ${API_BASE}. Start the backend with "npm run dev" in D:\\placement_chatbot\\server and try again.`;
+      throw new Error(errorMsg);
     }
     throw error;
   }
@@ -72,26 +87,35 @@ async function request(path, options = {}) {
 
 async function requestBlob(path, options = {}) {
   const token = getToken();
+  const url = `${API_BASE}${path}`;
+  const method = options.method || "GET";
+  console.info("[api] blob-request:start", { method, path, url });
 
   try {
-    const response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(url, {
       ...options,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers
       }
     });
+    console.info("[api] blob-request:response", { method, path, status: response.status });
 
     if (!response.ok) {
       let errorMessage = "Request failed.";
       try {
         const error = await response.json();
-        errorMessage = error.message || errorMessage;
+        if (error.details && Array.isArray(error.details)) {
+          errorMessage = error.details.join(", ");
+        } else {
+          errorMessage = error.message || errorMessage;
+        }
       } catch {
         errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       }
       const requestError = new Error(errorMessage);
       requestError.status = response.status;
+      requestError.path = path;
       throw requestError;
     }
 
@@ -99,7 +123,8 @@ async function requestBlob(path, options = {}) {
   } catch (error) {
     if (error.status) throw error;
     if (error instanceof TypeError) {
-      throw new Error(`Unable to reach the server at ${API_BASE}. Please check if the backend is running.`);
+      const errorMsg = `Backend server is not running or is unreachable at ${API_BASE}. Start the backend with "npm run dev" in D:\\placement_chatbot\\server and try again.`;
+      throw new Error(errorMsg);
     }
     throw error;
   }
@@ -115,5 +140,6 @@ export const api = {
   getSession: (id) => request(`/sessions/${id}`),
   renameSession: (id, title) => request(`/sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
   deleteSession: (id) => request(`/sessions/${id}`, { method: "DELETE" }),
-  chat: (payload) => request("/chat", { method: "POST", body: JSON.stringify(payload) })
+  chat: (payload) => request("/chat", { method: "POST", body: JSON.stringify(payload) }),
+  generateRoadmap: (payload) => request("/roadmap/generate", { method: "POST", body: JSON.stringify(payload) })
 };
