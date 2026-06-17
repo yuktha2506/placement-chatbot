@@ -5,6 +5,7 @@ import { jsPDF } from "jspdf";
 import {
   Bot,
   Check,
+  Compass, // ✅ Added missing import
   Download,
   Edit3,
   FileUp,
@@ -21,6 +22,9 @@ import {
 } from "lucide-react";
 import { api, clearAuth, getStoredUser, getToken, setAuth } from "./api";
 import ResumeForm from "./ResumeForm";
+import RoadmapWizard from "./RoadmapWizard"; 
+import RoadmapImage from "./RoadmapImage";
+import { createSvgFromText, svgStringToPngBlob } from "./utils/roadmapSvg";
 
 const suggestions = [
   "What is a service-based company?",
@@ -212,6 +216,7 @@ export default function App() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [resumeContext, setResumeContext] = useState(null);
   const [showResumeForm, setShowResumeForm] = useState(false);
+  const [showRoadmapWizard, setShowRoadmapWizard] = useState(false);
   const fileInputRef = useRef(null);
   const messagesRef = useRef(null);
   const textareaRef = useRef(null);
@@ -255,7 +260,6 @@ export default function App() {
         logout();
         return;
       }
-
       console.error(error);
       setSessions([]);
     }
@@ -344,16 +348,16 @@ export default function App() {
       const result = await api.chat({ sessionId: activeSessionId, message: text });
       setActiveSessionId(result.sessionId);
       setMessages((current) => [
-  ...current,
-  {
-    id: crypto.randomUUID(),
-    role: "assistant",
-    content: result.answer,
-    suggestions: result.suggestions || [],
-    timestamp: new Date().toISOString(),
-    sources: result.sources
-  }
-]);
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: result.answer,
+          suggestions: result.suggestions || [],
+          timestamp: new Date().toISOString(),
+          sources: result.sources
+        }
+      ]);
       await refreshSessions();
     } catch (error) {
       setMessages((current) => [
@@ -367,6 +371,99 @@ export default function App() {
       ]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  const handleRoadmapInjected = async (result) => {
+    setActiveSessionId(result.sessionId);
+    const userMsgId = crypto.randomUUID();
+    const assistantMsgId = crypto.randomUUID();
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: userMsgId,
+        role: "user",
+        content: `Generated a personalized roadmap strategy for ${result.meta.companyType === "product" ? "Product-Based" : "Service-Based"} companies scheduled on a ${result.meta.timeline.replace("_", " ")} timeline tracking loop.`,
+        timestamp: new Date().toISOString()
+      },
+      {
+        id: assistantMsgId,
+        role: "assistant",
+        content: result.answer,
+        infographicUrl: result.infographicUrl,
+        timestamp: new Date().toISOString()
+      }
+    ]);
+
+    await refreshSessions();
+
+    // If server didn't provide an infographic, render client-side SVG->PNG from the roadmap text
+    if (!result.infographicUrl && result.answer) {
+      try {
+        const svg = createSvgFromText(result.answer, 1200);
+        const blob = await svgStringToPngBlob(svg, 2);
+        const url = URL.createObjectURL(blob);
+
+        // Attach the generated image URL to the assistant message
+        setMessages((current) => current.map((m) => (m.id === assistantMsgId ? { ...m, infographicUrl: url } : m)));
+      } catch (err) {
+        console.error("Failed to render roadmap image client-side:", err);
+        // keep text fallback; no crash
+      }
+    }
+  };
+
+  function downloadFile(filename, content, type) {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadImageFromUrl(imageUrl, filename = "Placement_Preparation_Roadmap.png") {
+    const user = getStoredUser();
+    const namePart = user?.name ? `_${safeFilename(user.name)}` : "";
+    const ts = new Date().toISOString().slice(0, 10);
+    const finalFilename = filename.includes("Placement_Roadmap")
+      ? filename.replace('.png', `${namePart ? namePart : '_' + ts}.png`)
+      : `${safeFilename(filename.replace('.png', ''))}${namePart || '_' + ts}.png`;
+
+    // If it's already a blob URL or data URL, use it directly
+    try {
+      if (imageUrl.startsWith('blob:') || imageUrl.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = finalFilename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+        }, 1500);
+        return;
+      }
+
+      // Try to fetch the resource (works for same-origin or CORS-enabled URLs)
+      const response = await fetch(imageUrl, { mode: 'cors' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = finalFilename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to download image:', error);
+      // Fallback: open in new tab for manual save
+      window.open(imageUrl, '_blank');
     }
   }
 
@@ -509,16 +606,6 @@ export default function App() {
     }
   }
 
-  function downloadFile(filename, content, type) {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
   if (!isAuthenticated) {
     return (
       <main className="auth-shell">
@@ -632,6 +719,10 @@ export default function App() {
             <p>{user.name}</p>
           </div>
           <div className="export-actions">
+            <button className="icon-button" onClick={() => setShowRoadmapWizard(true)} aria-label="Build targeted preparation roadmap">
+              <Compass size={18} />
+              <span>Roadmap</span>
+            </button>
             <button className="icon-button" onClick={() => setShowResumeForm(true)} aria-label="Generate resume">
               <FileText size={18} />
               <span>Resume</span>
@@ -653,12 +744,12 @@ export default function App() {
             <Welcome onPick={sendMessage} />
           ) : (
             messages.map((message) => (
-  <MessageBubble
-    key={message.id}
-    message={message}
-    onSuggestionClick={sendMessage}
-  />
-))
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onSuggestionClick={sendMessage}
+              />
+            ))
           )}
           {loading && (
             <div className="typing">
@@ -738,6 +829,13 @@ export default function App() {
         </div>
       </main>
       {showResumeForm && <ResumeForm onClose={() => setShowResumeForm(false)} />}
+      {showRoadmapWizard && (
+        <RoadmapWizard 
+          onClose={() => setShowRoadmapWizard(false)} 
+          activeSessionId={activeSessionId}
+          onRoadmapGenerated={handleRoadmapInjected}
+        />
+      )}
     </div>
   );
 }
@@ -770,32 +868,68 @@ function MessageBubble({ message, onSuggestionClick }) {
           <time>{message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : nowTime()}</time>
         </div>
         <div className="markdown-body">
-  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-    {message.content}
-  </ReactMarkdown>
-</div>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {message.content}
+          </ReactMarkdown>
+        </div>
+        {!isUser && message.infographicUrl && (
+          <div style={{ marginTop: "16px", borderTop: "1px solid var(--line)", paddingTop: "14px" }}>
+            <h4 style={{ margin: "0 0 8px 0", fontSize: "1rem", color: "var(--primary)", fontWeight: 600 }}>Your personalized roadmap has been generated.</h4>
+            <p style={{ margin: "0 0 10px 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>Preview below — download as high-resolution PNG.</p>
+            <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--line)", background: "var(--panel-strong)", marginBottom: "10px" }}>
+              <img 
+                src={message.infographicUrl} 
+                alt="Placement Milestones Roadmap Infographic" 
+                style={{ width: "100%", height: "auto", display: "block", maxHeight: "360px", objectFit: "contain" }}
+              />
+            </div>
+            <button 
+              onClick={() => downloadImageFromUrl(message.infographicUrl, "Placement_Preparation_Roadmap.png")}
+              className="primary-button"
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", fontSize: "0.85rem", width: "auto", border: "none", cursor: "pointer" }}
+            >
+              <Download size={15} /> Download High-Res Infographic (PNG)
+            </button>
+          </div>
+        )}
 
-{message.suggestions?.length > 0 && (
-  <div className="sources suggestion-chips">
-    {message.suggestions.map((s) => (
-      <button
-        key={s}
-        type="button"
-        onClick={() => onSuggestionClick(s)}
-      >
-        {s}
-      </button>
-    ))}
-  </div>
-)}
+        {!isUser && message.content?.includes("roadmap") && message.content?.includes("timeline") && !message.infographicUrl && (
+          <div style={{ marginTop: "16px", borderTop: "1px solid var(--line)", paddingTop: "14px", backgroundColor: "var(--panel-strong)", padding: "12px", borderRadius: "6px" }}>
+            <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "var(--warning-text)", display: "flex", alignItems: "center", gap: "6px" }}>
+              ⚠️ Infographic Generation Note
+            </h4>
+            <p style={{ margin: "0", fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+              AI-powered infographic generation requires OpenAI API key configuration. To enable DALL-E image generation:
+            </p>
+            <ol style={{ margin: "8px 0 0 0", paddingLeft: "18px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+              <li>Set <code style={{ background: "var(--panel)", padding: "2px 6px", borderRadius: "3px" }}>OPENAI_API_KEY</code> in your <code style={{ background: "var(--panel)", padding: "2px 6px", borderRadius: "3px" }}>.env</code> file</li>
+              <li>Restart the backend server</li>
+              <li>Generate the roadmap again for an AI-powered visual roadmap</li>
+            </ol>
+          </div>
+        )}
 
-{message.sources?.length > 0 && !message.suggestions?.length && (
-  <div className="sources">
-    {message.sources.map((source) => (
-      <span key={source.id}>{source.title}</span>
-    ))}
-  </div>
-)}
+        {message.suggestions?.length > 0 && (
+          <div className="sources suggestion-chips">
+            {message.suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onSuggestionClick(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {message.sources?.length > 0 && !message.suggestions?.length && (
+          <div className="sources">
+            {message.sources.map((source) => (
+              <span key={source.id}>{source.title}</span>
+            ))}
+          </div>
+        )}
       </div>
     </article>
   );
