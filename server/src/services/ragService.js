@@ -32,3 +32,4 @@ export function formatKnowledgeContext(items) {
     .map((item, index) => `Source ${index + 1}: ${item.title}\n${item.content.trim()}`)
     .join("\n\n---\n\n");
 }
+
