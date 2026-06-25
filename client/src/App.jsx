@@ -23,7 +23,6 @@ import {
 import { api, clearAuth, getStoredUser, getToken, setAuth } from "./api";
 import ResumeForm from "./ResumeForm";
 import RoadmapWizard from "./RoadmapWizard"; 
-import RoadmapImage from "./RoadmapImage";
 import { createSvgFromText, svgStringToPngBlob } from "./utils/roadmapSvg";
 
 const suggestions = [
@@ -57,6 +56,55 @@ function cleanMarkdown(text) {
 
 function safeFilename(name) {
   return name.replace(/[\\/:*?"<>|]/g, "").replace(/\s+/g, "_").slice(0, 80);
+}
+
+function isRoadmapText(text) {
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  const roadmapTriggers = [
+    /placement roadmap/, /career roadmap/, /learning roadmap/, /skill development roadmap/, /placement preparation/, /placement plan/, /placement preparation plan/
+  ];
+  const structuralIndicators = [/week\s*1/, /month\s*1/, /mock interviews/, /interview preparation/, /skills/, /projects/, /certifications/];
+  const lines = text.split(/\r?\n/).filter(Boolean);
+
+  return (
+    lines.length >= 4 &&
+    (roadmapTriggers.some((re) => re.test(normalized)) || structuralIndicators.some((re) => re.test(normalized)))
+  );
+}
+
+function isRoadmapRequest(text) {
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  const triggers = [
+    /placement roadmap/, /career roadmap/, /learning roadmap/, /skill development roadmap/, /placement preparation plan/, /placement plan/
+  ];
+  return triggers.some((re) => re.test(normalized));
+}
+
+async function attachRoadmapImage(messageId, text) {
+  setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, imagePending: true, imageError: undefined } : m)));
+
+  let timeoutId = null;
+  const timeoutMs = 12000;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error("Roadmap image generation timed out."));
+    }, timeoutMs);
+  });
+
+  try {
+    const svg = createSvgFromText(text, 1200);
+    const blob = await Promise.race([svgStringToPngBlob(svg, 2), timeoutPromise]);
+    if (timeoutId) window.clearTimeout(timeoutId);
+    const url = URL.createObjectURL(blob);
+
+    setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, infographicUrl: url, imagePending: false, imagePendingAt: undefined } : m)));
+  } catch (error) {
+    if (timeoutId) window.clearTimeout(timeoutId);
+    console.error("Roadmap image generation failed:", error);
+    setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, imageError: error.message || "Failed to generate roadmap image.", imagePending: false, imagePendingAt: undefined } : m)));
+  }
 }
 
 function inferPdfName(messages, fallbackTitle) {
@@ -246,6 +294,31 @@ export default function App() {
     }
   }, [input]);
 
+  useEffect(() => {
+    if (!messages.length) return;
+
+    const now = Date.now();
+    const staleThreshold = 15000;
+    let hasStale = false;
+
+    const nextMessages = messages.map((message) => {
+      if (message.imagePending && message.imagePendingAt && now - message.imagePendingAt > staleThreshold) {
+        hasStale = true;
+        return {
+          ...message,
+          imagePending: false,
+          imagePendingAt: undefined,
+          imageError: message.imageError || "Roadmap image generation timed out. Please try again."
+        };
+      }
+      return message;
+    });
+
+    if (hasStale) {
+      setMessages(nextMessages);
+    }
+  }, [messages]);
+
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeSessionId),
     [sessions, activeSessionId]
@@ -347,17 +420,24 @@ export default function App() {
     try {
       const result = await api.chat({ sessionId: activeSessionId, message: text });
       setActiveSessionId(result.sessionId);
+      const messageId = crypto.randomUUID();
       setMessages((current) => [
         ...current,
         {
-          id: crypto.randomUUID(),
+          id: messageId,
           role: "assistant",
           content: result.answer,
           suggestions: result.suggestions || [],
           timestamp: new Date().toISOString(),
-          sources: result.sources
+          sources: result.sources,
+          isRoadmap: isRoadmapRequest(text),
+          imagePending: isRoadmapRequest(text),
+          imagePendingAt: isRoadmapRequest(text) ? Date.now() : undefined
         }
       ]);
+      if (isRoadmapRequest(text)) {
+        await attachRoadmapImage(messageId, result.answer);
+      }
       await refreshSessions();
     } catch (error) {
       setMessages((current) => [
@@ -392,26 +472,15 @@ export default function App() {
         role: "assistant",
         content: result.answer,
         infographicUrl: result.infographicUrl,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        isRoadmap: true,
+        imagePending: true,
+        imagePendingAt: Date.now()
       }
     ]);
 
     await refreshSessions();
-
-    // If server didn't provide an infographic, render client-side SVG->PNG from the roadmap text
-    if (!result.infographicUrl && result.answer) {
-      try {
-        const svg = createSvgFromText(result.answer, 1200);
-        const blob = await svgStringToPngBlob(svg, 2);
-        const url = URL.createObjectURL(blob);
-
-        // Attach the generated image URL to the assistant message
-        setMessages((current) => current.map((m) => (m.id === assistantMsgId ? { ...m, infographicUrl: url } : m)));
-      } catch (err) {
-        console.error("Failed to render roadmap image client-side:", err);
-        // keep text fallback; no crash
-      }
-    }
+    await attachRoadmapImage(assistantMsgId, result.answer);
   };
 
   function downloadFile(filename, content, type) {
@@ -856,6 +925,7 @@ function Welcome({ onPick }) {
 function MessageBubble({ message, onSuggestionClick }) {
   const isUser = message.role === "user";
   const isAtsReport = !isUser && /ATS Score|Resume-Based ATS|Skill Gap Report|Placement Readiness/i.test(message.content);
+  const isRoadmap = !isUser && Boolean(message.isRoadmap || isRoadmapText(message.content));
 
   return (
     <article className={`message-row ${isUser ? "user" : "assistant"} ${isAtsReport ? "ats-report" : ""}`}>
@@ -867,45 +937,55 @@ function MessageBubble({ message, onSuggestionClick }) {
           <strong>{isUser ? "You" : "Placement Assistant"}</strong>
           <time>{message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : nowTime()}</time>
         </div>
-        <div className="markdown-body">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content}
-          </ReactMarkdown>
-        </div>
+        {!isUser && message.imagePending ? (
+          <div style={{ padding: "18px 0", color: "#475569", fontSize: "0.95rem" }}>
+            <strong>Generating your visual placement roadmap...</strong>
+            <div style={{ marginTop: "8px", width: "100%", height: "6px", background: "#e2e8f0", borderRadius: "999px", overflow: "hidden" }}>
+              <div style={{ width: "64%", height: "100%", background: "linear-gradient(90deg, #2563eb 0%, #06b6d4 100%)" }} />
+            </div>
+          </div>
+        ) : null}
+        {!isUser && !message.infographicUrl && (!message.imagePending || !isRoadmap || message.imageError) ? (
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        ) : null}
+
         {!isUser && message.infographicUrl && (
           <div style={{ marginTop: "16px", borderTop: "1px solid var(--line)", paddingTop: "14px" }}>
             <h4 style={{ margin: "0 0 8px 0", fontSize: "1rem", color: "var(--primary)", fontWeight: 600 }}>Your personalized roadmap has been generated.</h4>
             <p style={{ margin: "0 0 10px 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>Preview below — download as high-resolution PNG.</p>
-            <div style={{ position: "relative", borderRadius: "8px", overflow: "hidden", border: "1px solid var(--line)", background: "var(--panel-strong)", marginBottom: "10px" }}>
+            <div style={{ position: "relative", borderRadius: "12px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc", marginBottom: "10px", boxShadow: "0 12px 28px rgba(15, 23, 42, 0.06)" }}>
               <img 
                 src={message.infographicUrl} 
                 alt="Placement Milestones Roadmap Infographic" 
-                style={{ width: "100%", height: "auto", display: "block", maxHeight: "360px", objectFit: "contain" }}
+                style={{ width: "100%", height: "auto", display: "block", maxHeight: "520px", objectFit: "contain" }}
               />
             </div>
             <button 
-              onClick={() => downloadImageFromUrl(message.infographicUrl, "Placement_Preparation_Roadmap.png")}
+              onClick={() => downloadImageFromUrl(message.infographicUrl, "Placement_Roadmap.png")}
               className="primary-button"
-              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 14px", fontSize: "0.85rem", width: "auto", border: "none", cursor: "pointer" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 16px", fontSize: "0.9rem", width: "auto", border: "none", cursor: "pointer" }}
             >
-              <Download size={15} /> Download High-Res Infographic (PNG)
+              <Download size={16} /> Download Roadmap (PNG)
             </button>
           </div>
         )}
 
-        {!isUser && message.content?.includes("roadmap") && message.content?.includes("timeline") && !message.infographicUrl && (
-          <div style={{ marginTop: "16px", borderTop: "1px solid var(--line)", paddingTop: "14px", backgroundColor: "var(--panel-strong)", padding: "12px", borderRadius: "6px" }}>
-            <h4 style={{ margin: "0 0 8px 0", fontSize: "0.95rem", color: "var(--warning-text)", display: "flex", alignItems: "center", gap: "6px" }}>
-              ⚠️ Infographic Generation Note
-            </h4>
-            <p style={{ margin: "0", fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
-              AI-powered infographic generation requires OpenAI API key configuration. To enable DALL-E image generation:
-            </p>
-            <ol style={{ margin: "8px 0 0 0", paddingLeft: "18px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-              <li>Set <code style={{ background: "var(--panel)", padding: "2px 6px", borderRadius: "3px" }}>OPENAI_API_KEY</code> in your <code style={{ background: "var(--panel)", padding: "2px 6px", borderRadius: "3px" }}>.env</code> file</li>
-              <li>Restart the backend server</li>
-              <li>Generate the roadmap again for an AI-powered visual roadmap</li>
-            </ol>
+        {message.imageError && (
+          <div style={{ marginTop: "16px", borderTop: "1px solid var(--line)", paddingTop: "14px", backgroundColor: "#f8fafc", padding: "14px", borderRadius: "8px", border: "1px solid #f1f5f9" }}>
+            <h4 style={{ margin: 0, fontSize: "1rem", color: "#b91c1c", fontWeight: 600 }}>Roadmap image generation failed.</h4>
+            <p style={{ margin: "8px 0 0", fontSize: "0.9rem", color: "#475569" }}>Showing the original roadmap text below instead.</p>
+          </div>
+        )}
+
+        {!isUser && message.infographicUrl == null && message.imageError && (
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
           </div>
         )}
 
