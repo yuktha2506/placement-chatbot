@@ -98,7 +98,13 @@ async function attachRoadmapImage(setMessages, messageId, text) {
     const blob = await Promise.race([svgStringToPngBlob(svg, 2), timeoutPromise]);
     const url = URL.createObjectURL(blob);
 
-    setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, infographicUrl: url, imagePending: false, imagePendingAt: undefined } : m)));
+    setMessages((current) => current.map((m) => (m.id === messageId ? {
+      ...m,
+      infographicUrl: m.infographicUrl || url,
+      roadmapDownloadUrl: url,
+      imagePending: false,
+      imagePendingAt: undefined
+    } : m)));
   } catch (error) {
     console.error("Roadmap image generation failed:", error);
     setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, imageError: error.message || "Failed to generate roadmap image.", imagePending: false, imagePendingAt: undefined } : m)));
@@ -474,15 +480,14 @@ export default function App() {
         infographicUrl: result.infographicUrl,
         timestamp: new Date().toISOString(),
         isRoadmap: true,
+        roadmapDownloadUrl: result.infographicUrl,
         imagePending: !result.infographicUrl,
         imagePendingAt: result.infographicUrl ? undefined : Date.now()
       }
     ]);
 
     await refreshSessions();
-    if (!result.infographicUrl) {
-      await attachRoadmapImage(setMessages, assistantMsgId, result.answer);
-    }
+    await attachRoadmapImage(setMessages, assistantMsgId, result.answer);
   };
 
   function downloadFile(filename, content, type) {
@@ -496,6 +501,11 @@ export default function App() {
   }
 
   async function downloadImageFromUrl(imageUrl, filename = "Placement_Preparation_Roadmap.png") {
+    if (!imageUrl) {
+      setExportError("Roadmap image is not ready yet. Please try again in a moment.");
+      return;
+    }
+
     const user = getStoredUser();
     const namePart = user?.name ? `_${safeFilename(user.name)}` : "";
     const ts = new Date().toISOString().slice(0, 10);
@@ -533,13 +543,13 @@ export default function App() {
       }, 1500);
     } catch (error) {
       console.error('Failed to download image:', error);
-      // Fallback: open in new tab for manual save
-      window.open(imageUrl, '_blank');
+      setExportError("Roadmap download failed. Please try again after the image preview finishes loading.");
     }
   }
 
   function getLatestRoadmapImageUrl() {
-    return [...messages].reverse().find((message) => message.isRoadmap && message.infographicUrl)?.infographicUrl;
+    const roadmap = [...messages].reverse().find((message) => message.isRoadmap && (message.roadmapDownloadUrl || message.infographicUrl));
+    return roadmap?.roadmapDownloadUrl || roadmap?.infographicUrl;
   }
 
   async function exportTxt() {
@@ -983,7 +993,7 @@ function MessageBubble({ message, onSuggestionClick }) {
               />
             </div>
             <button 
-              onClick={() => downloadImageFromUrl(message.infographicUrl, "Placement_Roadmap.png")}
+              onClick={() => downloadImageFromUrl(message.roadmapDownloadUrl || message.infographicUrl, "Placement_Roadmap.png")}
               className="primary-button"
               style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 16px", fontSize: "0.9rem", width: "auto", border: "none", cursor: "pointer" }}
             >
