@@ -83,7 +83,11 @@ function isRoadmapRequest(text) {
 }
 
 async function attachRoadmapImage(setMessages, messageId, text) {
-  setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, imagePending: true, imageError: undefined } : m)));
+  setMessages((current) => current.map((m) => (m.id === messageId ? {
+    ...m,
+    imagePending: !m.infographicUrl,
+    imageError: undefined
+  } : m)));
 
   let timeoutId = null;
   const timeoutMs = 12000;
@@ -271,6 +275,8 @@ export default function App() {
   const [resumeContext, setResumeContext] = useState(null);
   const [showResumeForm, setShowResumeForm] = useState(false);
   const [showRoadmapWizard, setShowRoadmapWizard] = useState(false);
+  const [roadmapPreview, setRoadmapPreview] = useState(null);
+  const [roadmapPreviewZoom, setRoadmapPreviewZoom] = useState(1);
   const fileInputRef = useRef(null);
   const messagesRef = useRef(null);
   const textareaRef = useRef(null);
@@ -550,6 +556,16 @@ export default function App() {
   function getLatestRoadmapImageUrl() {
     const roadmap = [...messages].reverse().find((message) => message.isRoadmap && (message.roadmapDownloadUrl || message.infographicUrl));
     return roadmap?.roadmapDownloadUrl || roadmap?.infographicUrl;
+  }
+
+  function openRoadmapPreview(imageUrl) {
+    if (!imageUrl) {
+      setExportError("Roadmap image is not available for preview yet.");
+      return;
+    }
+
+    setRoadmapPreview(imageUrl);
+    setRoadmapPreviewZoom(1);
   }
 
   async function exportTxt() {
@@ -845,6 +861,8 @@ export default function App() {
                 key={message.id}
                 message={message}
                 onSuggestionClick={sendMessage}
+                onRoadmapDownload={downloadImageFromUrl}
+                onRoadmapPreview={openRoadmapPreview}
               />
             ))
           )}
@@ -933,6 +951,31 @@ export default function App() {
           onRoadmapGenerated={handleRoadmapInjected}
         />
       )}
+      {roadmapPreview && (
+        <div className="roadmap-preview-overlay" role="dialog" aria-modal="true" aria-label="Roadmap image preview">
+          <div className="roadmap-preview-toolbar">
+            <button type="button" className="icon-button" onClick={() => setRoadmapPreviewZoom((zoom) => Math.max(0.5, zoom - 0.25))} aria-label="Zoom out">
+              -
+            </button>
+            <button type="button" className="icon-button" onClick={() => setRoadmapPreviewZoom(1)} aria-label="Reset zoom">
+              {Math.round(roadmapPreviewZoom * 100)}%
+            </button>
+            <button type="button" className="icon-button" onClick={() => setRoadmapPreviewZoom((zoom) => Math.min(3, zoom + 0.25))} aria-label="Zoom in">
+              +
+            </button>
+            <button type="button" className="icon-button" onClick={() => setRoadmapPreview(null)} aria-label="Close roadmap preview">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="roadmap-preview-stage">
+            <img
+              src={roadmapPreview}
+              alt="Full size placement roadmap preview"
+              style={{ width: `${roadmapPreviewZoom * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -950,7 +993,7 @@ function Welcome({ onPick }) {
   );
 }
 
-function MessageBubble({ message, onSuggestionClick }) {
+function MessageBubble({ message, onSuggestionClick, onRoadmapDownload, onRoadmapPreview }) {
   const isUser = message.role === "user";
   const isAtsReport = !isUser && /ATS Score|Resume-Based ATS|Skill Gap Report|Placement Readiness/i.test(message.content);
   const isRoadmap = !isUser && Boolean(message.isRoadmap || isRoadmapText(message.content));
@@ -985,15 +1028,21 @@ function MessageBubble({ message, onSuggestionClick }) {
           <div style={{ marginTop: "16px", borderTop: "1px solid var(--line)", paddingTop: "14px" }}>
             <h4 style={{ margin: "0 0 8px 0", fontSize: "1rem", color: "var(--primary)", fontWeight: 600 }}>Your personalized roadmap has been generated.</h4>
             <p style={{ margin: "0 0 10px 0", fontSize: "0.85rem", color: "var(--text-secondary)" }}>Preview below — download as high-resolution PNG.</p>
-            <div style={{ position: "relative", borderRadius: "12px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc", marginBottom: "10px", boxShadow: "0 12px 28px rgba(15, 23, 42, 0.06)" }}>
+            <button
+              type="button"
+              onClick={() => onRoadmapPreview(message.infographicUrl)}
+              style={{ position: "relative", borderRadius: "12px", overflow: "hidden", border: "1px solid #cbd5e1", background: "#f8fafc", marginBottom: "10px", boxShadow: "0 12px 28px rgba(15, 23, 42, 0.06)", padding: 0, width: "100%", cursor: "zoom-in" }}
+              aria-label="Open full-size roadmap preview"
+            >
               <img 
                 src={message.infographicUrl} 
                 alt="Placement Milestones Roadmap Infographic" 
                 style={{ width: "100%", height: "auto", display: "block", maxHeight: "520px", objectFit: "contain" }}
               />
-            </div>
+            </button>
             <button 
-              onClick={() => downloadImageFromUrl(message.roadmapDownloadUrl || message.infographicUrl, "Placement_Roadmap.png")}
+              type="button"
+              onClick={() => onRoadmapDownload(message.roadmapDownloadUrl || message.infographicUrl, "Placement_Roadmap.png")}
               className="primary-button"
               style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 16px", fontSize: "0.9rem", width: "auto", border: "none", cursor: "pointer" }}
             >
