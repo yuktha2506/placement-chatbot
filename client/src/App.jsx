@@ -82,7 +82,7 @@ function isRoadmapRequest(text) {
   return triggers.some((re) => re.test(normalized));
 }
 
-async function attachRoadmapImage(messageId, text) {
+async function attachRoadmapImage(setMessages, messageId, text) {
   setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, imagePending: true, imageError: undefined } : m)));
 
   let timeoutId = null;
@@ -96,14 +96,14 @@ async function attachRoadmapImage(messageId, text) {
   try {
     const svg = createSvgFromText(text, 1200);
     const blob = await Promise.race([svgStringToPngBlob(svg, 2), timeoutPromise]);
-    if (timeoutId) window.clearTimeout(timeoutId);
     const url = URL.createObjectURL(blob);
 
     setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, infographicUrl: url, imagePending: false, imagePendingAt: undefined } : m)));
   } catch (error) {
-    if (timeoutId) window.clearTimeout(timeoutId);
     console.error("Roadmap image generation failed:", error);
     setMessages((current) => current.map((m) => (m.id === messageId ? { ...m, imageError: error.message || "Failed to generate roadmap image.", imagePending: false, imagePendingAt: undefined } : m)));
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
   }
 }
 
@@ -436,7 +436,7 @@ export default function App() {
         }
       ]);
       if (isRoadmapRequest(text)) {
-        await attachRoadmapImage(messageId, result.answer);
+        await attachRoadmapImage(setMessages, messageId, result.answer);
       }
       await refreshSessions();
     } catch (error) {
@@ -474,13 +474,15 @@ export default function App() {
         infographicUrl: result.infographicUrl,
         timestamp: new Date().toISOString(),
         isRoadmap: true,
-        imagePending: true,
-        imagePendingAt: Date.now()
+        imagePending: !result.infographicUrl,
+        imagePendingAt: result.infographicUrl ? undefined : Date.now()
       }
     ]);
 
     await refreshSessions();
-    await attachRoadmapImage(assistantMsgId, result.answer);
+    if (!result.infographicUrl) {
+      await attachRoadmapImage(setMessages, assistantMsgId, result.answer);
+    }
   };
 
   function downloadFile(filename, content, type) {
@@ -536,7 +538,17 @@ export default function App() {
     }
   }
 
-  function exportTxt() {
+  function getLatestRoadmapImageUrl() {
+    return [...messages].reverse().find((message) => message.isRoadmap && message.infographicUrl)?.infographicUrl;
+  }
+
+  async function exportTxt() {
+    const roadmapImageUrl = getLatestRoadmapImageUrl();
+    if (roadmapImageUrl) {
+      await downloadImageFromUrl(roadmapImageUrl, "Placement_Roadmap.png");
+      return;
+    }
+
     const title = activeSession?.title || "placement-chat";
     const content = messages
       .map((message) => `[${message.role.toUpperCase()}] ${new Date(message.timestamp).toLocaleString()}\n${message.content}`)
@@ -544,10 +556,16 @@ export default function App() {
     downloadFile(`${title}.txt`, content, "text/plain");
   }
 
-  function exportPdf() {
+  async function exportPdf() {
     setExportError("");
 
     try {
+      const roadmapImageUrl = getLatestRoadmapImageUrl();
+      if (roadmapImageUrl) {
+        await downloadImageFromUrl(roadmapImageUrl, "Placement_Roadmap.png");
+        return;
+      }
+
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const title = activeSession?.title || "Placement Chat";
       let y = page.marginTop;
