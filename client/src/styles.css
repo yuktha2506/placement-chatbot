@@ -973,6 +973,38 @@ textarea:focus-visible {
   font-weight: 600;
 }
 
+.roadmap-preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.roadmap-preview-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.roadmap-preview-stage {
+  flex: 1;
+  overflow: auto;
+  background: var(--panel);
+  border-radius: 8px;
+  display: grid;
+  place-items: start center;
+  padding: 18px;
+}
+
+.roadmap-preview-stage img {
+  max-width: none;
+  height: auto;
+}
+
 .form-step-title {
   margin: 0 0 16px 0;
   font-size: 16px;
