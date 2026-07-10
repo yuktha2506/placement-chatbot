@@ -7,6 +7,8 @@ import { authRouter } from "./routes/auth.js";
 import { chatRouter } from "./routes/chat.js";
 import { resumeRouter } from "./routes/resume.js";
 import { sessionsRouter } from "./routes/sessions.js";
+import { roadmapRouter } from "./routes/roadmap.js";
+import { mockInterviewsRouter } from "./routes/mockInterviews.js";
 
 const app = express();
 
@@ -59,6 +61,8 @@ app.use("/auth", authRouter);
 app.use("/chat", chatRouter);
 app.use("/resume", resumeRouter);
 app.use("/sessions", sessionsRouter);
+app.use("/roadmap", roadmapRouter);
+app.use("/mock-interviews", mockInterviewsRouter);
 
 app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
