@@ -141,5 +141,10 @@ export const api = {
   renameSession: (id, title) => request(`/sessions/${id}`, { method: "PUT", body: JSON.stringify({ title }) }),
   deleteSession: (id) => request(`/sessions/${id}`, { method: "DELETE" }),
   chat: (payload) => request("/chat", { method: "POST", body: JSON.stringify(payload) }),
-  generateRoadmap: (payload) => request("/roadmap/generate", { method: "POST", body: JSON.stringify(payload) })
+  generateRoadmap: (payload) => request("/roadmap/generate", { method: "POST", body: JSON.stringify(payload) }),
+  startMockInterview: (payload) => request("/mock-interviews/start", { method: "POST", body: JSON.stringify(payload) }),
+  answerMockInterview: (id, payload) => request(`/mock-interviews/${id}/answer`, { method: "POST", body: JSON.stringify(payload) }),
+  finishMockInterview: (id) => request(`/mock-interviews/${id}/finish`, { method: "POST" }),
+  listMockInterviews: () => request("/mock-interviews"),
+  getMockInterview: (id) => request(`/mock-interviews/${id}`)
 };
