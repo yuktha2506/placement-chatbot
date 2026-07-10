@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { jsPDF } from "jspdf";
@@ -24,6 +24,8 @@ import { api, clearAuth, getStoredUser, getToken, setAuth } from "./api";
 import ResumeForm from "./ResumeForm";
 import RoadmapWizard from "./RoadmapWizard"; 
 import { createSvgFromText, svgStringToPngBlob } from "./utils/roadmapSvg";
+
+const MockInterviewModule = lazy(() => import("./mockInterview/MockInterviewModule"));
 
 const suggestions = [
   "What is a service-based company?",
@@ -275,6 +277,7 @@ export default function App() {
   const [resumeContext, setResumeContext] = useState(null);
   const [showResumeForm, setShowResumeForm] = useState(false);
   const [showRoadmapWizard, setShowRoadmapWizard] = useState(false);
+  const [showMockInterview, setShowMockInterview] = useState(false);
   const [roadmapPreview, setRoadmapPreview] = useState(null);
   const [roadmapPreviewZoom, setRoadmapPreviewZoom] = useState(1);
   const fileInputRef = useRef(null);
@@ -836,6 +839,10 @@ export default function App() {
               <Compass size={18} />
               <span>Roadmap</span>
             </button>
+            <button className="icon-button" onClick={() => setShowMockInterview(true)} aria-label="Start AI mock interview">
+              <Bot size={18} />
+              <span>Mock</span>
+            </button>
             <button className="icon-button" onClick={() => setShowResumeForm(true)} aria-label="Generate resume">
               <FileText size={18} />
               <span>Resume</span>
@@ -950,6 +957,11 @@ export default function App() {
           activeSessionId={activeSessionId}
           onRoadmapGenerated={handleRoadmapInjected}
         />
+      )}
+      {showMockInterview && (
+        <Suspense fallback={<div className="modal-overlay"><div className="modal-content"><p className="mock-muted">Loading mock interview...</p></div></div>}>
+          <MockInterviewModule onClose={() => setShowMockInterview(false)} />
+        </Suspense>
       )}
       {roadmapPreview && (
         <div className="roadmap-preview-overlay" role="dialog" aria-modal="true" aria-label="Roadmap image preview">
