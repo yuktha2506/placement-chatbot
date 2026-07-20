@@ -38,7 +38,8 @@ const roleBlueprints = {
 };
 
 const coveragePlan = [
-  "Fundamentals",
+  "Introduction",
+  "Basic role foundation",
   "Practical implementation",
   "Scenario",
   "Debugging",
@@ -70,6 +71,8 @@ function expectedKeywordsFor(blueprint, topic) {
 }
 
 function questionTypeFor(category, role) {
+  if (category === "Introduction") return "HR";
+  if (category === "Basic role foundation") return "Technical";
   if (category === "Ownership and reflection") return "Behavioral";
   if (category === "Scenario" || category === "Real-world application") return "Scenario-based";
   if (["Optimization", "Trade-offs", "Debugging"].includes(category)) return "Problem-solving";
@@ -83,6 +86,8 @@ function promptFor({ role, difficulty, topic, category, type }) {
   const depth = advanced ? "include architectural trade-offs and failure modes" : intermediate ? "include implementation details and trade-offs" : "keep the explanation clear and practical";
 
   const templates = {
+    Introduction: `Tell me about yourself, your background, your key skills, and why you are interested in the ${role} role.`,
+    "Basic role foundation": `Let's start with a basic question: what is ${topic}, and why is it important for a ${role}?`,
     Fundamentals: `Explain ${topic} for a ${role} role and mention where you have used it. ${depth}.`,
     "Practical implementation": type === "Coding"
       ? `Write or describe an implementation involving ${topic}. Include logic, edge cases, time complexity, and space complexity.`
