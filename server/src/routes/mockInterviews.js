@@ -5,7 +5,7 @@ import { pool } from "../db/pool.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { buildFollowUpQuestion, buildQuestionPlan } from "../services/mockInterview/questionGenerator.js";
+import { buildFollowUpQuestion, buildQuestionPlan, questionSimilarity } from "../services/mockInterview/questionGenerator.js";
 import { evaluateAnswer } from "../services/mockInterview/answerEvaluator.js";
 import { buildInterviewReport } from "../services/mockInterview/reportGenerator.js";
 
@@ -124,8 +124,13 @@ mockInterviewsRouter.post("/:id/answer", validate(answerSchema), asyncHandler(as
   let nextQuestion = questionPlan[nextIndex] || null;
 
   if (evaluation.needsFollowUp && question.type !== "Follow-up") {
-    nextQuestion = buildFollowUpQuestion(question);
-    questionPlan.splice(nextIndex, 0, nextQuestion);
+    const followUp = buildFollowUpQuestion(question, req.body.answer);
+    const askedPrompts = previousTurns.map(turn => turn.question);
+    const duplicateFollowUp = askedPrompts.some(prompt => questionSimilarity(prompt, followUp.prompt) >= 0.72);
+    if (!duplicateFollowUp) {
+      nextQuestion = followUp;
+      questionPlan.splice(nextIndex, 0, nextQuestion);
+    }
   }
 
   if (!nextQuestion) {
