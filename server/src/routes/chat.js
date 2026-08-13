@@ -13,6 +13,7 @@ import { detectIntent, shouldReturnDirectAnswer, shouldSkipRag, shouldProcessWit
 import { findDirectAnswer, findComparisonAnswer } from "../services/knowledgeService.js";
 import { getPersonalizedAnswer } from "../services/personalizationService.js";
 import { getResumeContext, answerWithResumeContext } from "../services/resumeAnalysisService.js";
+import { answerEligibilityQuery } from "../services/companyEligibilityService.js";
 
 export const chatRouter = Router();
 
@@ -88,8 +89,11 @@ chatRouter.post("/", validate(chatSchema), asyncHandler(async (req, res) => {
       answer = greetingResponse;
     } else {
       const intent = detectIntent(message);
+      const eligibilityAnswer = await answerEligibilityQuery(message);
 
-      if (shouldReturnDirectAnswer(intent)) {
+      if (eligibilityAnswer) {
+        answer = eligibilityAnswer;
+      } else if (shouldReturnDirectAnswer(intent)) {
         const directAnswer = findDirectAnswer(message, intent);
         if (directAnswer) {
           answer = directAnswer;
@@ -185,8 +189,14 @@ chatRouter.post("/", validate(chatSchema), asyncHandler(async (req, res) => {
   }
 
   res.json({
-    sessionId,
-    answer,
-    sources: sources.map(({ id, title }) => ({ id, title }))
-  });
+  sessionId,
+  answer,
+  suggestions: [
+    "Coding Interview and DSA Preparation",
+    "Product-Based Companies",
+    "Placement Preparation Roadmap",
+    "HR, Technical, Mock Interview and GD Guidance"
+  ],
+  sources: sources.map(({ id, title }) => ({ id, title }))
+});
 }));
