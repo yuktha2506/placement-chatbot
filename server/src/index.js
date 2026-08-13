@@ -9,6 +9,7 @@ import { resumeRouter } from "./routes/resume.js";
 import { sessionsRouter } from "./routes/sessions.js";
 import { roadmapRouter } from "./routes/roadmap.js";
 import { mockInterviewsRouter } from "./routes/mockInterviews.js";
+import { eligibilityRouter } from "./routes/eligibility.js";
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use("/resume", resumeRouter);
 app.use("/sessions", sessionsRouter);
 app.use("/roadmap", roadmapRouter);
 app.use("/mock-interviews", mockInterviewsRouter);
+app.use("/eligibility", eligibilityRouter);
 
 app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
