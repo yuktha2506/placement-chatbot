@@ -48,7 +48,10 @@ function normalizeCompany(row) {
 export async function getCompanyDataset() {
   try {
     const [rows] = await pool.execute("SELECT * FROM company_eligibility ORDER BY category, name");
-    return rows.map(normalizeCompany);
+    const dbCompanies = rows.map(normalizeCompany);
+    const dbIds = new Set(dbCompanies.map(company => company.id));
+    const missingSamples = sampleCompanies.filter(company => !dbIds.has(company.id));
+    return [...dbCompanies, ...missingSamples].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   } catch (error) {
     if (error.code !== "ER_NO_SUCH_TABLE") {
       console.warn("[eligibility] Falling back to sample company dataset", { error: error.message });
@@ -71,13 +74,54 @@ export function parseSkills(value) {
     .filter(Boolean);
 }
 
+const skillAliases = {
+  javascript: ["js", "java script", "ecmascript"],
+  nodejs: ["node", "node.js", "node js"],
+  restapis: ["rest api", "rest apis", "api", "apis"],
+  programmingbasics: ["programming", "coding", "c", "c++", "java", "python", "javascript", "js"],
+  backendbasics: ["backend", "node", "node.js", "node js", "express", "rest api", "rest apis", "api"],
+  oop: ["object oriented programming", "object oriented", "oops"],
+  problemsolving: ["problem solving", "problem-solving", "coding", "leetcode", "hackerrank", "codechef"],
+  dsa: ["data structures", "algorithms", "data structures and algorithms"],
+  cloudbasics: ["cloud", "aws", "azure", "gcp"],
+  computernetworks: ["computer networks", "cn", "networking"],
+  dbms: ["database", "databases", "database management system"],
+  engineeringfundamentals: ["engineering fundamentals", "core fundamentals"]
+};
+
+function normalizeSkill(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9+#]/g, "");
+}
+
+function expandSkill(value) {
+  const normalized = normalizeSkill(value);
+  const expanded = new Set([normalized]);
+
+  Object.entries(skillAliases).forEach(([canonical, aliases]) => {
+    const normalizedAliases = aliases.map(normalizeSkill);
+    if (normalized === canonical || normalizedAliases.includes(normalized)) {
+      expanded.add(canonical);
+      normalizedAliases.forEach(alias => expanded.add(alias));
+    }
+  });
+
+  return expanded;
+}
+
 function normalizedSet(values) {
-  return new Set(values.map(value => String(value).toLowerCase().replace(/[^a-z0-9+#.]/g, "")));
+  const set = new Set();
+  values.forEach(value => {
+    expandSkill(value).forEach(skill => set.add(skill));
+  });
+  return set;
 }
 
 function skillMatches(studentSkills, companySkills) {
   const student = normalizedSet(studentSkills);
-  return companySkills.filter(skill => student.has(String(skill).toLowerCase().replace(/[^a-z0-9+#.]/g, "")));
+  return companySkills.filter(skill => {
+    const acceptable = expandSkill(skill);
+    return [...acceptable].some(item => student.has(item));
+  });
 }
 
 export function validateProfile(profile) {
