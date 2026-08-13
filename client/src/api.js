@@ -146,5 +146,7 @@ export const api = {
   answerMockInterview: (id, payload) => request(`/mock-interviews/${id}/answer`, { method: "POST", body: JSON.stringify(payload) }),
   finishMockInterview: (id) => request(`/mock-interviews/${id}/finish`, { method: "POST" }),
   listMockInterviews: () => request("/mock-interviews"),
-  getMockInterview: (id) => request(`/mock-interviews/${id}`)
+  getMockInterview: (id) => request(`/mock-interviews/${id}`),
+  checkCompanyEligibility: (payload) => request("/eligibility/check", { method: "POST", body: JSON.stringify(payload) }),
+  listEligibilityCompanies: () => request("/eligibility/companies")
 };
