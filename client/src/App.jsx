@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { jsPDF } from "jspdf";
 import {
   Bot,
+  Building2,
   Check,
   Compass, // ✅ Added missing import
   Download,
@@ -26,6 +27,7 @@ import RoadmapWizard from "./RoadmapWizard";
 import { createSvgFromText, svgStringToPngBlob } from "./utils/roadmapSvg";
 
 const MockInterviewModule = lazy(() => import("./mockInterview/MockInterviewModule"));
+const EligibilityChecker = lazy(() => import("./eligibility/EligibilityChecker"));
 
 const suggestions = [
   "What is a service-based company?",
@@ -278,6 +280,7 @@ export default function App() {
   const [showResumeForm, setShowResumeForm] = useState(false);
   const [showRoadmapWizard, setShowRoadmapWizard] = useState(false);
   const [showMockInterview, setShowMockInterview] = useState(false);
+  const [showEligibilityChecker, setShowEligibilityChecker] = useState(false);
   const [roadmapPreview, setRoadmapPreview] = useState(null);
   const [roadmapPreviewZoom, setRoadmapPreviewZoom] = useState(1);
   const fileInputRef = useRef(null);
@@ -843,6 +846,10 @@ export default function App() {
               <Bot size={18} />
               <span>Mock</span>
             </button>
+            <button className="icon-button" onClick={() => setShowEligibilityChecker(true)} aria-label="Check company eligibility">
+              <Building2 size={18} />
+              <span>Eligibility</span>
+            </button>
             <button className="icon-button" onClick={() => setShowResumeForm(true)} aria-label="Generate resume">
               <FileText size={18} />
               <span>Resume</span>
@@ -961,6 +968,11 @@ export default function App() {
       {showMockInterview && (
         <Suspense fallback={<div className="modal-overlay"><div className="modal-content"><p className="mock-muted">Loading mock interview...</p></div></div>}>
           <MockInterviewModule onClose={() => setShowMockInterview(false)} />
+        </Suspense>
+      )}
+      {showEligibilityChecker && (
+        <Suspense fallback={<div className="modal-overlay"><div className="modal-content"><p className="mock-muted">Loading eligibility checker...</p></div></div>}>
+          <EligibilityChecker onClose={() => setShowEligibilityChecker(false)} />
         </Suspense>
       )}
       {roadmapPreview && (
