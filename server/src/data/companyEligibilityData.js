@@ -96,6 +96,42 @@ export const sampleCompanies = [
     notes: "Sample/demo criteria for guidance only."
   },
   {
+    id: "salesforce-fullstack",
+    name: "Salesforce",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["JavaScript", "REST APIs"],
+    preferredSkills: ["React", "Node.js", "SQL", "OOP"],
+    role: "Full Stack Developer",
+    notes: "Sample/demo criteria for full-stack placement guidance. Verify official campus notification."
+  },
+  {
+    id: "atlassian-frontend",
+    name: "Atlassian",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT"],
+    maxBacklogs: 0,
+    requiredSkills: ["JavaScript", "React"],
+    preferredSkills: ["HTML", "CSS", "REST APIs", "Problem solving"],
+    role: "Frontend Engineer",
+    notes: "Sample/demo criteria for guidance only. Product company shortlisting can vary by role."
+  },
+  {
+    id: "oracle-appdev",
+    name: "Oracle",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Java", "SQL"],
+    preferredSkills: ["OOP", "DBMS", "REST APIs", "Cloud basics"],
+    role: "Application Developer",
+    notes: "Sample/demo criteria. Official eligibility can differ by campus and hiring season."
+  },
+  {
     id: "bosch-core",
     name: "Bosch",
     category: "Core",
