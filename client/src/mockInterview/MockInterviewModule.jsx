@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Download, History, Play, Send, X } from "lucide-react";
+import { Download, History, Mic, MicOff, Play, Send, Volume2, X } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { api } from "../api";
 
@@ -154,6 +154,7 @@ function ReportDashboard({ report }) {
 
 export default function MockInterviewModule({ onClose }) {
   const [setup, setSetup] = useState({ role: roles[0], difficulty: difficulties[1], duration: 10 });
+  const [interviewMode, setInterviewMode] = useState("text");
   const [interview, setInterview] = useState(null);
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState("");
@@ -162,9 +163,18 @@ export default function MockInterviewModule({ onClose }) {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState("idle");
+  const [voiceMessage, setVoiceMessage] = useState("");
   const textareaRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const voiceQuestionIdRef = useRef(null);
+  const voiceTranscriptRef = useRef("");
 
   const elapsedSeconds = useMemo(() => Math.max(1, Math.round((Date.now() - startedAt) / 1000)), [question, answer]);
+  const speechRecognitionSupported = typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  const speechSynthesisSupported = typeof window !== "undefined" && Boolean(window.speechSynthesis);
+  const voiceSupported = speechRecognitionSupported && speechSynthesisSupported;
 
   async function loadHistory() {
     try {
@@ -179,38 +189,129 @@ export default function MockInterviewModule({ onClose }) {
     loadHistory();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      stopListening();
+      stopMicTracks();
+      stopSpeaking();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (interviewMode !== "voice" || !question || !voiceSupported) return;
+    if (voiceQuestionIdRef.current === question.id) return;
+    voiceQuestionIdRef.current = question.id;
+    speakQuestion(question.prompt);
+  }, [interviewMode, question, voiceSupported]);
+
+  function stopSpeaking() {
+    if (speechSynthesisSupported) {
+      window.speechSynthesis.cancel();
+    }
+  }
+
+  function stopMicTracks() {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+  }
+
+  function stopListening() {
+    if (recognitionRef.current) {
+      recognitionRef.current.onresult = null;
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.onend = null;
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // Browser may already have ended recognition.
+      }
+      recognitionRef.current = null;
+    }
+    stopMicTracks();
+  }
+
+  async function ensureMicrophonePermission() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Voice interviews are not supported in this browser.");
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStreamRef.current = stream;
+    stopMicTracks();
+  }
+
+  function speakQuestion(text) {
+    if (!speechSynthesisSupported || !text) return;
+    stopSpeaking();
+    setVoiceStatus("speaking");
+    setVoiceMessage("AI is speaking...");
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    utterance.onend = () => {
+      setVoiceStatus("ready");
+      setVoiceMessage("Your turn. Tap the microphone and answer.");
+    };
+    utterance.onerror = () => {
+      setVoiceStatus("ready");
+      setVoiceMessage("Unable to play audio. You can read the question and answer by voice or text.");
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
   async function startInterview(event) {
     event.preventDefault();
     setError("");
+    setVoiceMessage("");
+    if (interviewMode === "voice" && !voiceSupported) {
+      setError("Voice interviews are not supported in this browser. Please use Text mode or try Chrome/Edge.");
+      return;
+    }
     setLoading(true);
     try {
+      if (interviewMode === "voice") {
+        await ensureMicrophonePermission();
+      }
       const result = await api.startMockInterview(setup);
       setInterview(result.interview);
       setQuestion(result.question);
       setReport(null);
       setAnswer("");
       setStartedAt(Date.now());
+      voiceQuestionIdRef.current = null;
     } catch (err) {
-      setError(err.message || "Unable to start mock interview.");
+      if (interviewMode === "voice" && /permission|denied|notallowed/i.test(err.message || "")) {
+        setError("Microphone access is required for voice interviews. Please allow microphone access and try again.");
+      } else {
+        setError(err.message || "Unable to start mock interview.");
+      }
     } finally {
       setLoading(false);
     }
   }
 
-  async function submitAnswer(event) {
-    event.preventDefault();
-    if (!answer.trim() || !interview || !question) return;
+  async function submitAnswerValue(answerText) {
+    if (!answerText.trim() || !interview || !question) return;
     setError("");
     setLoading(true);
+    if (interviewMode === "voice") {
+      setVoiceStatus("processing");
+      setVoiceMessage("Processing your answer...");
+    }
     try {
       const result = await api.answerMockInterview(interview.id, {
-        answer,
+        answer: answerText,
         timeSpentSeconds: Math.round((Date.now() - startedAt) / 1000)
       });
       setAnswer("");
       if (result.completed) {
         setQuestion(null);
         setReport(result.report);
+        setVoiceStatus("idle");
+        setVoiceMessage("Interview completed. Your report is ready.");
+        stopSpeaking();
+        stopListening();
         await loadHistory();
       } else {
         setQuestion(result.question);
@@ -224,13 +325,96 @@ export default function MockInterviewModule({ onClose }) {
     }
   }
 
+  async function submitAnswer(event) {
+    event.preventDefault();
+    await submitAnswerValue(answer);
+  }
+
+  function startListening() {
+    if (!voiceSupported) {
+      setError("Voice interviews are not supported in this browser. Please use Text mode.");
+      return;
+    }
+    if (voiceStatus === "listening" || loading || !interview || !question) return;
+
+    stopSpeaking();
+    stopListening();
+    setError("");
+    setAnswer("");
+    setVoiceStatus("listening");
+    setVoiceMessage("Listening...");
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+    voiceTranscriptRef.current = "";
+
+    let finalTranscript = "";
+    let submitted = false;
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0]?.transcript || "";
+        if (event.results[index].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      voiceTranscriptRef.current = `${finalTranscript} ${interimTranscript}`.trim();
+      setAnswer(voiceTranscriptRef.current);
+    };
+
+    recognition.onerror = (event) => {
+      const message = event.error === "no-speech"
+        ? "I could not hear an answer. Please tap the microphone and try again."
+        : event.error === "not-allowed"
+          ? "Microphone access is required for voice interviews. Please allow microphone access and try again."
+          : "Speech recognition failed. Please try again or type your answer.";
+      setError(message);
+      setVoiceStatus("ready");
+      setVoiceMessage("Your turn. Tap the microphone and answer.");
+    };
+
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      stopMicTracks();
+      const spokenAnswer = voiceTranscriptRef.current.trim();
+      if (submitted) return;
+      submitted = true;
+      if (!spokenAnswer) {
+        setVoiceStatus("ready");
+        setVoiceMessage("No clear speech detected. Tap the microphone and try again.");
+        return;
+      }
+      submitAnswerValue(spokenAnswer);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setVoiceStatus("ready");
+      setVoiceMessage("Unable to start listening. Please try again.");
+    }
+  }
+
   async function finishInterview() {
     if (!interview) return;
+    stopListening();
+    stopSpeaking();
     setLoading(true);
     try {
       const result = await api.finishMockInterview(interview.id);
       setQuestion(null);
       setReport(result.report);
+      setVoiceStatus("idle");
+      setVoiceMessage("Interview completed. Your report is ready.");
       await loadHistory();
     } catch (err) {
       setError(err.message || "Unable to finish interview.");
@@ -240,6 +424,8 @@ export default function MockInterviewModule({ onClose }) {
   }
 
   async function openHistory(id) {
+    stopListening();
+    stopSpeaking();
     setLoading(true);
     try {
       const result = await api.getMockInterview(id);
@@ -258,7 +444,7 @@ export default function MockInterviewModule({ onClose }) {
       <div className="modal-content mock-interview-modal">
         <div className="modal-header">
           <h2>AI Mock Interview</h2>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close mock interview">
+          <button className="icon-button" type="button" onClick={() => { stopListening(); stopSpeaking(); onClose(); }} aria-label="Close mock interview">
             <X size={20} />
           </button>
         </div>
@@ -270,7 +456,13 @@ export default function MockInterviewModule({ onClose }) {
             <label>Role<select value={setup.role} onChange={event => setSetup({ ...setup, role: event.target.value })}>{roles.map(role => <option key={role}>{role}</option>)}</select></label>
             <label>Difficulty<select value={setup.difficulty} onChange={event => setSetup({ ...setup, difficulty: event.target.value })}>{difficulties.map(item => <option key={item}>{item}</option>)}</select></label>
             <label>Duration<select value={setup.duration} onChange={event => setSetup({ ...setup, duration: Number(event.target.value) })}>{durations.map(item => <option key={item} value={item}>{item} minutes</option>)}</select></label>
+            <fieldset className="mock-mode-toggle">
+              <legend>Interview Mode</legend>
+              <label><input type="radio" name="mock-mode" value="text" checked={interviewMode === "text"} onChange={() => setInterviewMode("text")} /> Text</label>
+              <label><input type="radio" name="mock-mode" value="voice" checked={interviewMode === "voice"} onChange={() => setInterviewMode("voice")} /> Voice</label>
+            </fieldset>
             <button className="primary-button" type="submit" disabled={loading}><Play size={16} /> Start Interview</button>
+            {interviewMode === "voice" && !voiceSupported && <p className="mock-muted mock-voice-warning">Voice mode needs browser speech recognition and speech synthesis support.</p>}
           </form>
         )}
 
@@ -280,16 +472,33 @@ export default function MockInterviewModule({ onClose }) {
               <span>{interview.role}</span>
               <span>{interview.difficulty}</span>
               <span>{question.type}</span>
+              <span>{interviewMode === "voice" ? "Voice mode" : "Text mode"}</span>
             </div>
+            {interviewMode === "voice" && (
+              <div className={`mock-voice-panel ${voiceStatus}`}>
+                <div>
+                  <strong>{voiceMessage || "Voice interview is ready."}</strong>
+                  <span>{voiceStatus === "listening" ? "Recording..." : voiceStatus === "speaking" ? "Listen to the interviewer." : voiceStatus === "processing" ? "Evaluating through the existing interview engine." : "Use the microphone or type if needed."}</span>
+                </div>
+                <Volume2 size={18} />
+              </div>
+            )}
             <h3>{question.prompt}</h3>
             <textarea
               ref={textareaRef}
               value={answer}
               onChange={event => setAnswer(event.target.value)}
               rows={8}
-              placeholder="Type your answer. Multi-line code is supported."
+              placeholder={interviewMode === "voice" ? "Your spoken answer transcript will appear here. You can edit or type if needed." : "Type your answer. Multi-line code is supported."}
             />
             <div className="mock-actions">
+              {interviewMode === "voice" && (
+                voiceStatus === "listening" ? (
+                  <button className="secondary-button" type="button" onClick={() => recognitionRef.current?.stop()} disabled={loading}><MicOff size={16} /> Stop Recording</button>
+                ) : (
+                  <button className="secondary-button" type="button" onClick={startListening} disabled={loading || voiceStatus === "speaking" || voiceStatus === "processing"}><Mic size={16} /> Tap to Speak</button>
+                )
+              )}
               <button className="secondary-button" type="button" onClick={finishInterview} disabled={loading}>Finish Interview</button>
               <button className="primary-button" type="submit" disabled={loading || !answer.trim()}><Send size={16} /> Submit Answer</button>
             </div>
