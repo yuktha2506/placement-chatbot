@@ -1150,6 +1150,34 @@ textarea:focus-visible {
   align-self: end;
 }
 
+.mock-mode-toggle {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mock-mode-toggle legend {
+  color: var(--muted);
+  font-size: 0.82rem;
+  padding: 0 4px;
+}
+
+.mock-mode-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.mock-voice-warning {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .mock-question-meta,
 .mock-downloads,
 .mock-actions,
@@ -1172,6 +1200,40 @@ textarea:focus-visible {
   margin: 6px 0;
 }
 
+.mock-voice-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--panel-strong);
+}
+
+.mock-voice-panel div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.mock-voice-panel span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.mock-voice-panel.speaking {
+  border-color: color-mix(in srgb, var(--primary) 32%, var(--line));
+}
+
+.mock-voice-panel.listening {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+}
+
+.mock-voice-panel.listening svg {
+  color: var(--danger);
+}
+
 .mock-active textarea {
   min-height: 180px;
   resize: vertical;
@@ -1180,6 +1242,13 @@ textarea:focus-visible {
 
 .mock-actions {
   justify-content: flex-end;
+}
+
+.mock-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .mock-muted {
