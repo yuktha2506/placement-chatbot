@@ -1336,3 +1336,192 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+.eligibility-modal {
+  max-width: 1080px;
+}
+
+.eligibility-note {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.eligibility-form {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eligibility-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.eligibility-form input,
+.eligibility-form select,
+.eligibility-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-strong);
+  color: var(--text);
+  font: inherit;
+}
+
+.eligibility-form textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.eligibility-skills {
+  grid-column: span 3;
+}
+
+.eligibility-form .primary-button {
+  align-self: end;
+  min-height: 44px;
+}
+
+.eligibility-error {
+  margin: 0 20px 16px;
+}
+
+.eligibility-results {
+  padding: 20px;
+}
+
+.eligibility-summary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  background: var(--panel-strong);
+}
+
+.eligibility-summary span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.eligibility-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.eligibility-filter-row button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.eligibility-filter-row button.active {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+  background: color-mix(in srgb, var(--primary) 10%, var(--panel));
+}
+
+.eligibility-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.eligibility-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--panel);
+  display: grid;
+  gap: 10px;
+}
+
+.eligibility-card.eligible {
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--line));
+}
+
+.eligibility-card.not-eligible {
+  border-color: color-mix(in srgb, var(--danger) 24%, var(--line));
+}
+
+.eligibility-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.eligibility-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.eligibility-card header span,
+.eligibility-card small {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.eligibility-card header strong {
+  color: var(--primary-strong);
+  white-space: nowrap;
+}
+
+.eligibility-card.not-eligible header strong {
+  color: var(--danger);
+}
+
+.eligibility-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.eligibility-card dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.eligibility-card dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.eligibility-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--danger);
+}
+
+.eligibility-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--primary-strong);
+}
+
+@media (max-width: 720px) {
+  .eligibility-form,
+  .eligibility-card-grid,
+  .eligibility-card dl {
+    grid-template-columns: 1fr;
+  }
+
+  .eligibility-skills {
+    grid-column: auto;
+  }
+}
