@@ -1044,6 +1044,13 @@ function MessageBubble({ message, onSuggestionClick, onRoadmapDownload, onRoadma
           <strong>{isUser ? "You" : "Placement Assistant"}</strong>
           <time>{message.timestamp ? new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : nowTime()}</time>
         </div>
+        {isUser && (
+          <div className="markdown-body">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        )}
         {!isUser && message.imagePending ? (
           <div style={{ padding: "18px 0", color: "#475569", fontSize: "0.95rem" }}>
             <strong>Generating your visual placement roadmap...</strong>
