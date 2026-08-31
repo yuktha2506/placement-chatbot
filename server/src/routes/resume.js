@@ -11,6 +11,7 @@ import {
   analyzeResumeText,
   extractResumeTextFromUpload,
   getResumeContext,
+  resumeAnalysisVersion,
   resumeContextToSystemMessage
 } from "../services/resumeAnalysisService.js";
 
@@ -56,7 +57,7 @@ resumeRouter.post("/analyze", requireAuth, validate(resumeSchema), asyncHandler(
   );
   const existingContext = getResumeContext(history);
 
-  if (existingContext?.fileName === req.body.fileName) {
+  if (existingContext?.fileName === req.body.fileName && existingContext.version === resumeAnalysisVersion) {
     console.info("[resume-upload] Reusing existing parsed resume context", { fileName: req.body.fileName });
     return res.json({
       sessionId,
