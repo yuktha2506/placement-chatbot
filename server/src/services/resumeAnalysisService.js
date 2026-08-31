@@ -8,6 +8,7 @@ import { env } from "../config/env.js";
 
 const execFileAsync = promisify(execFile);
 const contextMarker = "RESUME_CONTEXT_JSON:";
+export const resumeAnalysisVersion = 2;
 
 export const roleRequirements = {
   "software engineer": ["DSA", "OOPs", "DBMS", "OS", "CN", "Git", "REST APIs", "Java", "Python"],
@@ -114,6 +115,7 @@ export function analyzeResumeText(text, targetRoleInput = "") {
   const placementReadinessScore = calculatePlacementReadiness(ats.total, parsedResume, skillGap);
 
   const resumeContext = {
+    version: resumeAnalysisVersion,
     parsedResume,
     atsScore: ats,
     missingSkills: skillGap.missingSkills,
@@ -217,12 +219,13 @@ ${formatRoadmap(gap, role, resumeContext)}`;
 
 function parseResume(text) {
   const sections = splitSections(text);
+  const contact = extractContactDetails(text);
   return {
     name: extractName(text),
-    email: text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "",
-    phone: text.match(/(?:\+91[\s-]?)?[6-9]\d{9}|\+?\d[\d\s().-]{8,}\d/)?.[0]?.trim() || "",
-    linkedin: text.match(/https?:\/\/[^\s]*linkedin[^\s]*/i)?.[0] || "",
-    github: text.match(/https?:\/\/[^\s]*github[^\s]*/i)?.[0] || "",
+    email: contact.email,
+    phone: contact.phone,
+    linkedin: contact.linkedin,
+    github: contact.github,
     education: extractSectionItems(sections, ["education"]),
     skills: extractSkills(text),
     projects: extractSectionItems(sections, ["projects", "project"]),
@@ -230,6 +233,56 @@ function parseResume(text) {
     certifications: extractSectionItems(sections, ["certifications", "certification", "certificates"]),
     achievements: extractSectionItems(sections, ["achievements", "awards", "honors", "competitive programming"])
   };
+}
+
+function extractContactDetails(text) {
+  const normalized = normalizeContactText(text);
+  const email = normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || "";
+  const phone = normalized.match(/(?:\+91[\s-]?)?[6-9]\d{9}|\+?\d[\d\s().-]{8,}\d/)?.[0]?.trim() || "";
+  const linkedin = extractProfileLink(normalized, "linkedin");
+  const github = extractProfileLink(normalized, "github");
+
+  console.info("[resume-parse] Contact fields extracted", {
+    emailDetected: Boolean(email),
+    phoneDetected: Boolean(phone),
+    linkedinDetected: Boolean(linkedin),
+    githubDetected: Boolean(github)
+  });
+
+  return { email, phone, linkedin, github };
+}
+
+function normalizeContactText(text = "") {
+  return String(text)
+    .replace(/\s*@\s*/g, "@")
+    .replace(/\s*\.\s*(com|in|org|net|edu)\b/gi, ".$1")
+    .replace(/\bhttps\s*:\s*\/\s*\//gi, "https://")
+    .replace(/\bhttp\s*:\s*\/\s*\//gi, "http://")
+    .replace(/\bwww\s*\.\s*/gi, "www.")
+    .replace(/\blinkedin\s*\.\s*com/gi, "linkedin.com")
+    .replace(/\bgithub\s*\.\s*com/gi, "github.com")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/[|•,;]+/g, " ");
+}
+
+function extractProfileLink(text, provider) {
+  const providerPattern = provider === "linkedin"
+    ? /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/(?:in|pub|company)\/[A-Za-z0-9._%+-]+\/?/i
+    : /(?:https?:\/\/)?(?:www\.)?github\.com\/[A-Za-z0-9._-]+\/?/i;
+  const direct = text.match(providerPattern)?.[0];
+  if (direct) {
+    const clean = direct.replace(/[).,;]+$/g, "");
+    return clean.startsWith("http") ? clean : `https://${clean.replace(/^www\./i, "")}`;
+  }
+
+  const labeled = text.match(new RegExp(`${provider}\\s*[:\\-]?\\s*([A-Za-z0-9._-]{3,})`, "i"))?.[1];
+  if (labeled && !/com|email|phone/i.test(labeled)) {
+    return provider === "linkedin"
+      ? `https://linkedin.com/in/${labeled}`
+      : `https://github.com/${labeled}`;
+  }
+
+  return "";
 }
 
 function splitSections(text) {
@@ -272,13 +325,27 @@ function extractName(text) {
 }
 
 function extractSkills(text) {
-  return knownSkills.filter((skill) => {
+  const detected = knownSkills.filter((skill) => {
     const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const pattern = skill === "C"
       ? /(?:^|[\s,;|/(])C(?:$|[\s,;|/)])/i
       : new RegExp(`(?:^|[^A-Za-z0-9+.#])${escaped}(?:$|[^A-Za-z0-9+.#])`, "i");
     return pattern.test(text);
   });
+  const aliases = [
+    ["JavaScript", /\b(java\s*script|js)\b/i],
+    ["Node.js", /\b(node\s*js|node\.js)\b/i],
+    ["REST APIs", /\b(rest\s*api|rest\s*apis|api development)\b/i],
+    ["OOPs", /\b(oop|oops|object oriented programming)\b/i],
+    ["GitHub", /\bgithub\b/i],
+    ["Machine Learning", /\b(machine learning|ml)\b/i]
+  ];
+
+  for (const [skill, pattern] of aliases) {
+    if (pattern.test(text) && !detected.includes(skill)) detected.push(skill);
+  }
+
+  return detected;
 }
 
 function calculateAtsScore(parsed, text) {
@@ -333,9 +400,9 @@ function calculateAtsScore(parsed, text) {
 
 function calculateSkillGap(skills, role) {
   const requiredSkills = roleRequirements[role] || roleRequirements["software engineer"];
-  const resumeSkillText = skills.join(" ").toLowerCase();
-  const matchedSkills = requiredSkills.filter((skill) => resumeSkillText.includes(skill.toLowerCase()));
-  const missingSkills = requiredSkills.filter((skill) => !resumeSkillText.includes(skill.toLowerCase()));
+  const resumeSkillSet = new Set(skills.flatMap(expandSkillForGap));
+  const matchedSkills = requiredSkills.filter((skill) => expandSkillForGap(skill).some(item => resumeSkillSet.has(item)));
+  const missingSkills = requiredSkills.filter((skill) => !matchedSkills.includes(skill));
   return {
     targetRole: role,
     requiredSkills,
@@ -344,6 +411,22 @@ function calculateSkillGap(skills, role) {
     missingSkills,
     priority: missingSkills.map((skill, index) => ({ rank: index + 1, skill }))
   };
+}
+
+function expandSkillForGap(skill = "") {
+  const normalized = String(skill).toLowerCase().replace(/[^a-z0-9+#]/g, "");
+  const aliases = {
+    javascript: ["javascript", "js"],
+    nodejs: ["nodejs", "node"],
+    restapis: ["restapis", "restapi", "api"],
+    oops: ["oops", "oop", "objectorientedprogramming"],
+    cn: ["cn", "computernetworks", "networking"],
+    os: ["os", "operatingsystem"],
+    dbms: ["dbms", "database", "databases"],
+    dsa: ["dsa", "datastructures", "algorithms"],
+    machinelearning: ["machinelearning", "ml"]
+  };
+  return aliases[normalized] || [normalized];
 }
 
 function calculatePlacementReadiness(atsScore, parsed, skillGap) {
@@ -364,6 +447,7 @@ function inferTargetRoles(text, explicitRole = "") {
 }
 
 function formatResumeAnalysis({ parsedResume, ats, skillGap, targetRoles, placementReadinessScore }) {
+  const suggestions = buildImprovementSuggestions({ parsedResume, ats, skillGap });
   return `## Resume-Based ATS & Placement Analysis
 
 ### Parsed Resume
@@ -406,6 +490,10 @@ ${parsedResume.skills.map((skill) => `- ${skill}`).join("\n") || "- No clear tec
 
 ${skillGap.priority.map((item) => `${item.rank}. ${item.skill}`).join("\n") || "No priority gaps found."}
 
+### Skills To Improve
+
+${skillGap.missingSkills.map((skill) => `- ${skill}`).join("\n") || "- No major role-specific missing skills detected. Keep improving problem solving and project explanation."}
+
 ### Placement Readiness Score: ${placementReadinessScore}/100
 
 ### 30-60-90 Day Learning Roadmap
@@ -414,11 +502,21 @@ ${formatRoadmap(skillGap, skillGap.targetRole, { parsedResume, atsScore: ats, pl
 
 ### Improvement Suggestions
 
-- Add measurable outcomes to projects, such as users, accuracy, performance, or time saved.
-- Keep standard ATS headings: Education, Experience, Projects, Technical Skills, Certifications, Leadership & Volunteering.
-- Add missing role keywords naturally in projects and skills.
-- Strengthen GitHub/LinkedIn visibility if links are missing.
-- Prepare interview topics based on missing skills and project explanations.`;
+${suggestions.map((item) => `- ${item}`).join("\n")}`;
+}
+
+function buildImprovementSuggestions({ parsedResume, ats, skillGap }) {
+  const suggestions = [];
+  if (!parsedResume.email) suggestions.push("Add a valid email address in the resume header.");
+  if (!parsedResume.linkedin) suggestions.push("Add a LinkedIn profile URL in the header, preferably in linkedin.com/in/username format.");
+  if (!parsedResume.github) suggestions.push("Add a GitHub profile URL so recruiters can inspect your projects.");
+  if (ats.breakdown.projects < 15) suggestions.push("Improve project descriptions with tech stack, your contribution, and measurable outcomes.");
+  if (ats.breakdown.experience < 7) suggestions.push("Add internship, freelance, academic, or hands-on experience with clear responsibilities.");
+  if (ats.breakdown.achievements < 7) suggestions.push("Add certifications, coding platform achievements, awards, or hackathon participation.");
+  if (skillGap.missingSkills.length) suggestions.push(`Prioritize these role-specific skills: ${skillGap.missingSkills.slice(0, 5).join(", ")}.`);
+  suggestions.push("Use standard ATS headings: Education, Experience, Projects, Technical Skills, Certifications, Leadership & Volunteering.");
+  suggestions.push("Quantify impact wherever possible, such as accuracy, users, response time, ranking, or percentage improvement.");
+  return [...new Set(suggestions)];
 }
 
 function formatRoadmap(gap, role, resumeContext) {
