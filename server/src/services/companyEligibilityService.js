@@ -222,7 +222,14 @@ export function formatEligibilityMarkdown(result) {
 
 export function parseEligibilityQuery(message) {
   const text = message.toLowerCase();
-  if (!/(eligible|eligibility|apply|companies|company|require|requires)/i.test(message)) return null;
+  const hasEligibilityRequest = /\b(eligible|eligibility|apply|application|criteria|require|requires|not eligible)\b/i.test(message);
+  const hasPlacementProfile = /\b(?:cgpa|gpa|backlogs?|cse|ise|ece|eee|mechanical|civil|information technology)\b/i.test(message)
+    && /\b(?:know|skills?|java|python|sql|react|node)\b/i.test(message);
+  const hasCompanySpecificRequest = /\b(?:why.*not eligible for|not eligible for|eligible for)\b/i.test(message);
+
+  // A general definition such as "What is a product-based company?" belongs
+  // to the placement knowledge base, not to the eligibility workflow.
+  if (!hasEligibilityRequest && !hasPlacementProfile && !hasCompanySpecificRequest) return null;
 
   const cgpa = message.match(/(\d(?:\.\d{1,2})?)\s*(?:cgpa|gpa)/i)?.[1] || message.match(/cgpa\s*(?:is|:)?\s*(\d(?:\.\d{1,2})?)/i)?.[1];
   const noBacklogs = /\b(no|zero|0)\s+backlogs?\b/i.test(message);
