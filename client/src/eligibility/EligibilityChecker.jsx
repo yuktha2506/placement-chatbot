@@ -120,7 +120,7 @@ export default function EligibilityChecker({ onClose }) {
                   {category}
                 </button>
               ))}
-              {["Eligible", "Not eligible", "All"].map((status) => (
+              {["Eligible", "Not eligible"].map((status) => (
                 <button type="button" key={status} className={statusFilter === status ? "active" : ""} onClick={() => setStatusFilter(status)}>
                   {status}
                 </button>
