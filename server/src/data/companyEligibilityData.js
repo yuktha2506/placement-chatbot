@@ -48,6 +48,66 @@ export const sampleCompanies = [
     notes: "Sample/demo criteria for guidance only."
   },
   {
+    id: "wipro-turbo",
+    name: "Wipro",
+    category: "Service-based",
+    minCgpa: 6.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE", "ME", "Civil"],
+    maxBacklogs: 0,
+    requiredSkills: ["Aptitude", "Programming basics"],
+    preferredSkills: ["Java", "Python", "SQL", "Git"],
+    role: "Project Engineer",
+    notes: "Sample/demo criteria only. Verify the official campus drive notification."
+  },
+  {
+    id: "hcltech-get",
+    name: "HCLTech",
+    category: "Service-based",
+    minCgpa: 6.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE", "ME"],
+    maxBacklogs: 0,
+    requiredSkills: ["Programming basics"],
+    preferredSkills: ["Java", "Python", "SQL", "Cloud basics"],
+    role: "Graduate Engineer Trainee",
+    notes: "Sample/demo criteria only. Actual eligibility varies by role and campus."
+  },
+  {
+    id: "techmahindra-associate",
+    name: "Tech Mahindra",
+    category: "Service-based",
+    minCgpa: 5.5,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE", "ME", "Civil"],
+    maxBacklogs: 1,
+    requiredSkills: ["Programming basics"],
+    preferredSkills: ["Java", "Python", "Communication", "SQL"],
+    role: "Associate Software Engineer",
+    notes: "Sample/demo criteria only. Confirm the current company notification."
+  },
+  {
+    id: "capgemini-analyst",
+    name: "Capgemini",
+    category: "Service-based",
+    minCgpa: 6.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE", "ME"],
+    maxBacklogs: 0,
+    requiredSkills: ["Aptitude", "Programming basics"],
+    preferredSkills: ["Java", "Python", "SQL", "Communication"],
+    role: "Analyst",
+    notes: "Sample/demo criteria only. Campus criteria can change each hiring cycle."
+  },
+  {
+    id: "ltimindtree-get",
+    name: "LTIMindtree",
+    category: "Service-based",
+    minCgpa: 6.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Programming basics"],
+    preferredSkills: ["Java", "Python", "SQL", "REST APIs"],
+    role: "Graduate Engineer Trainee",
+    notes: "Sample/demo criteria only. Verify official eligibility before applying."
+  },
+  {
     id: "google-swe",
     name: "Google",
     category: "Product-based",
@@ -132,6 +192,78 @@ export const sampleCompanies = [
     notes: "Sample/demo criteria. Official eligibility can differ by campus and hiring season."
   },
   {
+    id: "sap-associate",
+    name: "SAP",
+    category: "Product-based",
+    minCgpa: 6.5,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Programming basics", "OOP"],
+    preferredSkills: ["Java", "JavaScript", "SQL", "Cloud basics"],
+    role: "Associate Developer",
+    notes: "Sample/demo criteria only. Role and campus eligibility may differ."
+  },
+  {
+    id: "intuit-sde",
+    name: "Intuit",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["DSA", "Problem solving"],
+    preferredSkills: ["Java", "Python", "React", "REST APIs"],
+    role: "Software Engineer",
+    notes: "Sample/demo criteria only. Product-company screening can be highly selective."
+  },
+  {
+    id: "cisco-network-software",
+    name: "Cisco",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Programming basics", "Computer Networks"],
+    preferredSkills: ["Python", "C++", "Linux", "Cloud basics"],
+    role: "Software Engineer",
+    notes: "Sample/demo criteria only. Verify official campus and role requirements."
+  },
+  {
+    id: "walmart-software",
+    name: "Walmart Global Tech",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["DSA", "OOP"],
+    preferredSkills: ["Java", "JavaScript", "SQL", "System Design"],
+    role: "Software Engineer",
+    notes: "Sample/demo criteria only. Hiring criteria vary by program and location."
+  },
+  {
+    id: "flipkart-sde",
+    name: "Flipkart",
+    category: "Product-based",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["DSA", "Problem solving"],
+    preferredSkills: ["Java", "Python", "SQL", "Backend basics"],
+    role: "Software Development Engineer",
+    notes: "Sample/demo criteria only. Verify official job and campus eligibility."
+  },
+  {
+    id: "paytm-data-analyst",
+    name: "Paytm",
+    category: "Product-based",
+    minCgpa: 6.5,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE"],
+    maxBacklogs: 0,
+    requiredSkills: ["SQL", "Python"],
+    preferredSkills: ["Excel", "Statistics", "Data Visualization", "Power BI"],
+    role: "Data Analyst",
+    notes: "Sample/demo criteria only. Actual roles and eligibility vary."
+  },
+  {
     id: "bosch-core",
     name: "Bosch",
     category: "Core",
@@ -168,6 +300,54 @@ export const sampleCompanies = [
     notes: "Sample/demo criteria for guidance only."
   },
   {
+    id: "honeywell-get",
+    name: "Honeywell",
+    category: "Core",
+    minCgpa: 6.5,
+    eligibleBranches: ["ECE", "EEE", "ME", "CSE", "ISE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Engineering fundamentals"],
+    preferredSkills: ["Embedded C", "Python", "IoT", "Automation"],
+    role: "Graduate Engineer Trainee",
+    notes: "Sample/demo criteria only. Check official eligibility before applying."
+  },
+  {
+    id: "schneider-get",
+    name: "Schneider Electric",
+    category: "Core",
+    minCgpa: 6.5,
+    eligibleBranches: ["ECE", "EEE", "ME", "CSE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Engineering fundamentals"],
+    preferredSkills: ["Automation", "PLC", "Python", "Electrical basics"],
+    role: "Graduate Engineer Trainee",
+    notes: "Sample/demo criteria only. Company requirements change by drive."
+  },
+  {
+    id: "ge-vernovat-get",
+    name: "GE Vernova",
+    category: "Core",
+    minCgpa: 6.5,
+    eligibleBranches: ["ME", "EEE", "ECE", "Civil"],
+    maxBacklogs: 0,
+    requiredSkills: ["Engineering fundamentals"],
+    preferredSkills: ["MATLAB", "Python", "AutoCAD", "Project Management"],
+    role: "Graduate Engineer Trainee",
+    notes: "Sample/demo criteria only. Verify current campus notification."
+  },
+  {
+    id: "tata-motors-get",
+    name: "Tata Motors",
+    category: "Core",
+    minCgpa: 6.0,
+    eligibleBranches: ["ME", "EEE", "ECE", "Civil"],
+    maxBacklogs: 0,
+    requiredSkills: ["Engineering fundamentals"],
+    preferredSkills: ["AutoCAD", "MATLAB", "Python", "Manufacturing basics"],
+    role: "Graduate Engineer Trainee",
+    notes: "Sample/demo criteria only. Actual requirements may vary by program."
+  },
+  {
     id: "razorpay-startup",
     name: "Razorpay",
     category: "Startup",
@@ -202,5 +382,53 @@ export const sampleCompanies = [
     preferredSkills: ["C", "Java", "SQL", "Problem solving"],
     role: "Software Developer",
     notes: "Sample/demo criteria. Some drives may emphasize coding rounds over CGPA."
+  },
+  {
+    id: "meesho-sde",
+    name: "Meesho",
+    category: "Startup",
+    minCgpa: 6.5,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Programming basics", "Problem solving"],
+    preferredSkills: ["Java", "Python", "SQL", "Backend basics"],
+    role: "Software Engineer",
+    notes: "Sample/demo criteria only. Startup hiring can prioritize coding and projects."
+  },
+  {
+    id: "swiggy-backend",
+    name: "Swiggy",
+    category: "Startup",
+    minCgpa: 6.5,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE"],
+    maxBacklogs: 0,
+    requiredSkills: ["Programming basics", "REST APIs"],
+    preferredSkills: ["Java", "Node.js", "SQL", "Backend basics"],
+    role: "Backend Engineer",
+    notes: "Sample/demo criteria only. Verify official opening details."
+  },
+  {
+    id: "phonepe-data",
+    name: "PhonePe",
+    category: "Startup",
+    minCgpa: 6.5,
+    eligibleBranches: ["CSE", "ISE", "IT", "ECE", "EEE"],
+    maxBacklogs: 0,
+    requiredSkills: ["SQL", "Problem solving"],
+    preferredSkills: ["Python", "Excel", "Statistics", "Data Visualization"],
+    role: "Data Analyst",
+    notes: "Sample/demo criteria only. Eligibility varies by role and campus."
+  },
+  {
+    id: "postman-frontend",
+    name: "Postman",
+    category: "Startup",
+    minCgpa: 7.0,
+    eligibleBranches: ["CSE", "ISE", "IT"],
+    maxBacklogs: 0,
+    requiredSkills: ["JavaScript", "React"],
+    preferredSkills: ["HTML", "CSS", "REST APIs", "Git"],
+    role: "Frontend Engineer",
+    notes: "Sample/demo criteria only. Confirm the actual hiring criteria."
   }
 ];
