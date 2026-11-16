@@ -4,34 +4,45 @@ export const knowledgeBase = [
     title: "Service-Based Companies",
     tags: ["service based", "companies", "tcs", "infosys", "wipro", "accenture"],
     content: `
-Service-based companies provide technology, consulting, outsourcing, and business services to clients.
+### Meaning
 
-Examples:
-- Tata Consultancy Services
+A **service-based company** earns revenue by delivering technology services to other organizations (clients). Instead of selling one primary software product to everyone, it works on client-specific projects such as application development, testing, cloud migration, support, consulting, and maintenance.
+
+### Simple example
+
+If a bank asks a company to build and maintain its mobile-banking application, the technology company is providing a service to that client. The final work is often tailored to the client's requirements.
+
+### Common examples in India
+
+- Tata Consultancy Services (TCS)
 - Infosys
 - Wipro
 - HCLTech
 - Tech Mahindra
 - Accenture
 - Cognizant
+- Capgemini
+- LTIMindtree
 
-Typical fresher roles:
-- Associate Software Engineer
-- Systems Engineer
-- Analyst
-- Graduate Engineer Trainee
-- Support Engineer
+### What freshers usually work on
 
-Common hiring process:
-- Online aptitude or coding test
-- Technical interview
-- HR interview
+- Client application development or enhancement
+- Testing, support, cloud, data, or infrastructure assignments
+- Requirement-based features and maintenance
+- Team collaboration, documentation, and client delivery processes
 
-General traits:
-- Stable hiring volume
-- Strong training programs
-- Client project exposure
-- Packages commonly vary by company, college tier, role, and year
+### Typical fresher hiring process
+
+1. Eligibility screening and online aptitude/coding test
+2. Technical interview on programming basics, OOPs, DBMS, projects, and communication
+3. HR interview
+
+### Key points
+
+- Hiring volume is often comparatively high.
+- Training programs are common for freshers.
+- Work domain and technology can depend on the client project.
+- Packages, eligibility, and roles vary by company, campus, and hiring season.
 `
   },
   {
@@ -39,9 +50,16 @@ General traits:
     title: "Product-Based Companies",
     tags: ["product based", "companies", "google", "microsoft", "amazon", "adobe"],
     content: `
-Product-based companies build, own, and scale their own software products, platforms, tools, or services.
+### Meaning
 
-Examples:
+A **product-based company** builds, owns, improves, and sells its own product or platform to many users or businesses. Its engineering teams work on the same product over time: adding features, improving performance, reliability, security, and user experience.
+
+### Simple example
+
+Google develops products such as Search, Maps, and Workspace. Engineers improve those products for a large user base, rather than building a separate custom application for one client.
+
+### Common examples
+
 - Google
 - Microsoft
 - Amazon
@@ -49,24 +67,29 @@ Examples:
 - Oracle
 - Salesforce
 - Atlassian
+- Intuit
+- SAP
+- Zoho
 
-Typical fresher roles:
-- Software Development Engineer
-- Product Engineer
-- Data Analyst
-- Cloud Engineer
-- QA Automation Engineer
+### What freshers usually work on
 
-Common hiring process:
-- Coding assessment
-- Multiple technical rounds
-- Problem solving and DSA evaluation
-- System design basics for some roles
-- HR or managerial round
+- Features for an existing product or platform
+- Backend APIs, frontend interfaces, testing, automation, data, cloud, or platform reliability
+- Debugging, code reviews, scalability, and customer-impacting improvements
 
-General traits:
-- Strong focus on DSA, CS fundamentals, projects, and problem solving
-- Compensation can be high but varies widely by role, location, college, and market conditions
+### Typical fresher hiring process
+
+1. Coding assessment or online test
+2. One or more technical interviews
+3. DSA, problem solving, CS fundamentals, projects, and language depth
+4. HR or managerial discussion for some roles
+
+### Key points
+
+- Hiring is commonly more selective for engineering roles.
+- Strong DSA, projects, core CS knowledge, and problem-solving skills are valuable.
+- Compensation may be higher for some roles, but it varies by company, location, level, and market conditions.
+- Product companies also hire for non-coding roles such as support, QA, analytics, design, and operations.
 `
   },
   {
@@ -76,12 +99,18 @@ General traits:
     content: `
 | Feature | Service-Based | Product-Based |
 |----------|-------------|-------------|
-| Focus | Client projects and services | Own products and platforms |
-| Work Type | Client requirements, maintenance, development, consulting | Product development, scaling, user experience, platform reliability |
-| Hiring Volume | Usually higher fresher hiring volume | Usually selective hiring |
-| Skills Tested | Aptitude, basics, communication, coding fundamentals | DSA, CS fundamentals, projects, coding depth |
-| Salary | Usually moderate for freshers | Often higher, but varies |
-| Growth | Stable and process-oriented | Fast learning in specialized engineering/product areas |
+| Main customer | Individual business clients | Many users or subscribing businesses |
+| Main focus | Client projects and technology services | Company-owned products and platforms |
+| Work type | Requirements, delivery, support, maintenance, consulting | Features, product quality, scale, reliability, and user experience |
+| Example | Building a custom app for a bank | Improving an e-commerce or collaboration platform used by many customers |
+| Fresher hiring | Often higher-volume | Often more selective for engineering roles |
+| Common screening | Aptitude, communication, programming basics, projects | DSA, coding depth, CS fundamentals, projects, problem solving |
+| Pay | Varies by role, campus, and company | Can be higher for some roles, but varies widely |
+| Learning pattern | Exposure to different clients/domains | Deeper ownership of one product/domain |
+
+### Which is better?
+
+Neither category is automatically better. Choose based on the role, team, learning opportunities, location, compensation, work culture, and the type of work you enjoy. A strong service-company role can be a great starting point, and product companies also have a wide range of teams and roles.
 `
   },
   {
